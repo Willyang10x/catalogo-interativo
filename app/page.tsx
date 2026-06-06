@@ -9,17 +9,16 @@ const AVAILABLE_CATEGORIES = ["Casual", "Running", "Skate"];
 export default function Home() {
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-  
-  // Estados para a barra de pesquisa e o debounce
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
+  
+  // Novo estado: Controla se a gaveta (drawer) está aberta no celular
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  // Lógica do Debounce: Aguarda 300ms após o usuário parar de digitar para atualizar a busca real
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedQuery(searchQuery);
     }, 300);
-
     return () => clearTimeout(handler);
   }, [searchQuery]);
 
@@ -35,7 +34,6 @@ export default function Home() {
     );
   };
 
-  // Filtra cruzando a pesquisa em texto, as marcas e as categorias
   const filteredProducts = useMemo(() => {
     return products.filter((sneaker) => {
       const matchesSearch = sneaker.name.toLowerCase().includes(debouncedQuery.toLowerCase());
@@ -47,27 +45,63 @@ export default function Home() {
   }, [debouncedQuery, selectedBrands, selectedCategories]);
 
   return (
-    <div className="min-h-screen bg-gray-100 p-4 md:p-8 font-sans">
+    <div className="min-h-screen bg-gray-100 p-4 md:p-8 font-sans relative">
       
-      {/* Header com a Barra de Pesquisa */}
       <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <h1 className="text-4xl font-extrabold text-gray-900 tracking-tight">
           Sneaker Store
         </h1>
         
-        <input 
-          type="text" 
-          placeholder="Buscar modelo de tênis..." 
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full md:w-80 px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all shadow-sm"
-        />
+        {/* Agrupamos o Input e o Botão de Filtro Mobile */}
+        <div className="flex gap-2 w-full md:w-80">
+          <input 
+            type="text" 
+            placeholder="Buscar modelo..." 
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all shadow-sm"
+          />
+          
+          {/* Botão que só aparece em telas pequenas (md:hidden) */}
+          <button 
+            onClick={() => setIsMobileMenuOpen(true)}
+            className="md:hidden px-4 py-3 bg-white border border-gray-200 rounded-xl shadow-sm font-semibold text-gray-700 active:bg-gray-50"
+          >
+            Filtros
+          </button>
+        </div>
       </div>
       
       <div className="flex flex-col md:flex-row gap-8">
         
-        <aside className="w-full md:w-1/4 h-fit p-6 rounded-2xl bg-white/60 backdrop-blur-md border border-white/40 shadow-xl">
-          <h2 className="text-xl font-bold text-gray-800 mb-6">Filtros</h2>
+        {/* OVERLAY ESCURO DO MOBILE (Clica fora para fechar) */}
+        {isMobileMenuOpen && (
+          <div 
+            className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm md:hidden transition-opacity"
+            onClick={() => setIsMobileMenuOpen(false)}
+          ></div>
+        )}
+
+        {/* === SIDEBAR / DRAWER === 
+            No mobile: fixed, z-50, tela cheia com translate para animar.
+            No desktop (md:): volta a ser relativo, sem translate, com glassmorphism.
+        */}
+        <aside className={`
+          fixed inset-y-0 left-0 z-50 w-4/5 max-w-xs bg-white p-6 shadow-2xl overflow-y-auto
+          transform transition-transform duration-300 ease-in-out
+          ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"}
+          md:relative md:translate-x-0 md:w-1/4 md:max-w-none md:bg-white/60 md:backdrop-blur-md md:border md:border-white/40 md:shadow-xl md:rounded-2xl md:overflow-visible
+        `}>
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-xl font-bold text-gray-800">Filtros</h2>
+            {/* Botão de Fechar do Mobile */}
+            <button 
+              onClick={() => setIsMobileMenuOpen(false)} 
+              className="md:hidden text-gray-400 hover:text-gray-700 text-3xl leading-none"
+            >
+              &times;
+            </button>
+          </div>
           
           <div className="space-y-6">
             <div>
@@ -105,9 +139,18 @@ export default function Home() {
                 ))}
               </div>
             </div>
+            
+            {/* Botão extra no mobile para confirmar e fechar a gaveta */}
+            <button 
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="w-full mt-6 py-3 bg-blue-600 text-white font-bold rounded-xl md:hidden active:bg-blue-700"
+            >
+              Ver resultados
+            </button>
           </div>
         </aside>
 
+        {/* === GRID DE PRODUTOS === */}
         <main className="w-full md:w-3/4">
           {filteredProducts.length === 0 ? (
             <div className="bg-white rounded-2xl p-12 text-center shadow-sm border border-gray-100">
