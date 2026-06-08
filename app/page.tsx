@@ -12,8 +12,6 @@ export default function Home() {
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
-  
-  // Novo estado: Controla se a gaveta (drawer) está aberta no celular
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
@@ -47,23 +45,28 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gray-100 p-4 md:p-8 font-sans relative">
-      
       <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <h1 className="text-4xl font-extrabold text-gray-900 tracking-tight">
           Sneaker Store
         </h1>
         
-        {/* Agrupamos o Input e o Botão de Filtro Mobile */}
         <div className="flex gap-2 w-full md:w-80">
-          <input 
-            type="text" 
-            placeholder="Buscar modelo..." 
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all shadow-sm"
-          />
+          <div className="relative w-full">
+            <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+              <svg aria-hidden="true" className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+              </svg>
+            </div>
+            
+            <input 
+              type="text" 
+              placeholder="Buscar modelo..." 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-3 text-gray-900 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all shadow-sm"
+            />
+          </div>
           
-          {/* Botão que só aparece em telas pequenas (md:hidden) */}
           <button 
             onClick={() => setIsMobileMenuOpen(true)}
             className="md:hidden px-4 py-3 bg-white border border-gray-200 rounded-xl shadow-sm font-semibold text-gray-700 active:bg-gray-50"
@@ -74,8 +77,6 @@ export default function Home() {
       </div>
       
       <div className="flex flex-col md:flex-row gap-8">
-        
-        {/* OVERLAY ESCURO DO MOBILE (Clica fora para fechar) */}
         {isMobileMenuOpen && (
           <div 
             className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm md:hidden transition-opacity"
@@ -83,10 +84,6 @@ export default function Home() {
           ></div>
         )}
 
-        {/* === SIDEBAR / DRAWER === 
-            No mobile: fixed, z-50, tela cheia com translate para animar.
-            No desktop (md:): volta a ser relativo, sem translate, com glassmorphism.
-        */}
         <aside className={`
           fixed inset-y-0 left-0 z-50 w-4/5 max-w-xs bg-white p-6 shadow-2xl overflow-y-auto
           transform transition-transform duration-300 ease-in-out
@@ -95,7 +92,6 @@ export default function Home() {
         `}>
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-xl font-bold text-gray-800">Filtros</h2>
-            {/* Botão de Fechar do Mobile */}
             <button 
               onClick={() => setIsMobileMenuOpen(false)} 
               className="md:hidden text-gray-400 hover:text-gray-700 text-3xl leading-none"
@@ -141,7 +137,6 @@ export default function Home() {
               </div>
             </div>
             
-            {/* Botão extra no mobile para confirmar e fechar a gaveta */}
             <button 
               onClick={() => setIsMobileMenuOpen(false)}
               className="w-full mt-6 py-3 bg-blue-600 text-white font-bold rounded-xl md:hidden active:bg-blue-700"
@@ -151,7 +146,6 @@ export default function Home() {
           </div>
         </aside>
 
-        {/* === GRID DE PRODUTOS === */}
         <main className="w-full md:w-3/4">
           {filteredProducts.length === 0 ? (
             <div className="bg-white rounded-2xl p-12 text-center shadow-sm border border-gray-100">
