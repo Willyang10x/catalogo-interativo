@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import { products, type Sneaker } from "./data/products";
+import { products, type Sneaker } from "../data/products";
+import Image from 'next/image';
 
 const AVAILABLE_BRANDS = ["Nike", "Adidas"];
 const AVAILABLE_CATEGORIES = ["Casual", "Running", "Skate"];
@@ -169,11 +170,15 @@ export default function Home() {
                   key={sneaker.id} 
                   className="bg-white rounded-2xl p-4 shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 group"
                 >
-                  <div className="aspect-square bg-gray-50 rounded-xl mb-4 overflow-hidden relative border border-gray-100">
-                    <div className="w-full h-full bg-gradient-to-tr from-gray-100 to-gray-200 flex items-center justify-center group-hover:scale-105 transition-transform duration-500">
-                      <span className="text-gray-400 font-medium text-sm">
-                        {sneaker.image.split('/').pop()}
-                      </span>
+                  <div className="aspect-square bg-gray-50 rounded-xl mb-4 overflow-hidden relative border border-gray-100 group-hover:shadow-md transition-all">
+                    <div className="w-full h-full flex items-center justify-center p-4 group-hover:scale-110 transition-transform duration-500 ease-in-out">
+                      <Image 
+                        src={sneaker.image} 
+                        alt={`Tênis ${sneaker.name}`} 
+                        fill
+                        className="object-contain p-4 mix-blend-multiply"
+                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                      />
                     </div>
                   </div>
                   
