@@ -13,6 +13,8 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  
+  const [sortOrder, setSortOrder] = useState('');
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -34,14 +36,21 @@ export default function Home() {
   };
 
   const filteredProducts = useMemo(() => {
-    return products.filter((sneaker) => {
+    const filtered = products.filter((sneaker) => {
       const matchesSearch = sneaker.name.toLowerCase().includes(debouncedQuery.toLowerCase());
       const matchesBrand = selectedBrands.length === 0 || selectedBrands.includes(sneaker.brand);
       const matchesCategory = selectedCategories.length === 0 || selectedCategories.includes(sneaker.category);
       
       return matchesSearch && matchesBrand && matchesCategory;
     });
-  }, [debouncedQuery, selectedBrands, selectedCategories]);
+
+    return filtered.sort((a, b) => {
+      if (sortOrder === 'price-asc') return a.price - b.price;
+      if (sortOrder === 'price-desc') return b.price - a.price;
+      if (sortOrder === 'name-asc') return a.name.localeCompare(b.name);
+      return 0; 
+    });
+  }, [debouncedQuery, selectedBrands, selectedCategories, sortOrder]);
 
   return (
     <div className="min-h-screen bg-gray-100 p-4 md:p-8 font-sans relative">
@@ -50,8 +59,8 @@ export default function Home() {
           Sneaker Store
         </h1>
         
-        <div className="flex gap-2 w-full md:w-80">
-          <div className="relative w-full">
+        <div className="flex flex-wrap md:flex-nowrap gap-2 w-full md:w-auto">
+          <div className="relative w-full md:w-80">
             <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
               <svg aria-hidden="true" className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
@@ -67,9 +76,20 @@ export default function Home() {
             />
           </div>
           
+          <select
+            value={sortOrder}
+            onChange={(e) => setSortOrder(e.target.value)}
+            className="flex-1 md:flex-none px-4 py-3 bg-white text-gray-700 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none shadow-sm cursor-pointer"
+          >
+            <option value="">Relevância</option>
+            <option value="price-asc">Menor Preço</option>
+            <option value="price-desc">Maior Preço</option>
+            <option value="name-asc">Ordem Alfabética (A-Z)</option>
+          </select>
+
           <button 
             onClick={() => setIsMobileMenuOpen(true)}
-            className="md:hidden px-4 py-3 bg-white border border-gray-200 rounded-xl shadow-sm font-semibold text-gray-700 active:bg-gray-50"
+            className="md:hidden flex-1 px-4 py-3 bg-white border border-gray-200 rounded-xl shadow-sm font-semibold text-gray-700 active:bg-gray-50"
           >
             Filtros
           </button>
@@ -151,7 +171,7 @@ export default function Home() {
             <div className="bg-white rounded-2xl p-12 text-center shadow-sm border border-gray-100">
               <p className="text-gray-500 text-lg">Nenhum tênis encontrado.</p>
               <button 
-                onClick={() => { setSelectedBrands([]); setSelectedCategories([]); setSearchQuery(''); }}
+                onClick={() => { setSelectedBrands([]); setSelectedCategories([]); setSearchQuery(''); setSortOrder(''); }}
                 className="mt-4 px-6 py-2 bg-blue-50 text-blue-600 font-semibold rounded-lg hover:bg-blue-100 transition-colors"
               >
                 Limpar filtros
