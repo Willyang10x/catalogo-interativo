@@ -13,8 +13,30 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  
   const [sortOrder, setSortOrder] = useState('');
+  
+  // Estado para armazenar os IDs dos produtos favoritados
+  const [favorites, setFavorites] = useState<number[]>([]);
+
+  // Carrega os favoritos salvos no localStorage assim que a página abre
+  useEffect(() => {
+    const savedFavorites = localStorage.getItem('sneaker-favorites');
+    if (savedFavorites) {
+      try {
+        setFavorites(JSON.parse(savedFavorites));
+      } catch (e) {
+        console.error("Erro ao carregar favoritos:", e);
+      }
+    }
+  }, []);
+
+  // Salva os favoritos no localStorage automaticamente toda vez que o estado mudar
+  useEffect(() => {
+    // Evita sobrescrever o localStorage com um array vazio no primeiro render síncrono
+    if (favorites.length >= 0) {
+      localStorage.setItem('sneaker-favorites', JSON.stringify(favorites));
+    }
+  }, [favorites]);
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -22,6 +44,13 @@ export default function Home() {
     }, 300);
     return () => clearTimeout(handler);
   }, [searchQuery]);
+
+  // Função para adicionar ou remover um item da lista de favoritos
+  const toggleFavorite = (id: number) => {
+    setFavorites((prev) =>
+      prev.includes(id) ? prev.filter((favId) => favId !== id) : [...prev, id]
+    );
+  };
 
   const toggleBrand = (brand: string) => {
     setSelectedBrands((prev) => 
@@ -179,41 +208,61 @@ export default function Home() {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredProducts.map((sneaker: Sneaker) => (
-                <div 
-                  key={sneaker.id} 
-                  className="bg-white rounded-2xl p-4 shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 group"
-                >
-                  <div className="aspect-square bg-gray-50 rounded-xl mb-4 overflow-hidden relative border border-gray-100 group-hover:shadow-md transition-all">
-                    <div className="w-full h-full flex items-center justify-center p-4 group-hover:scale-110 transition-transform duration-500 ease-in-out">
-                      <Image 
-                        src={sneaker.image} 
-                        alt={`Tênis ${sneaker.name}`} 
-                        fill
-                        className="object-contain p-4 mix-blend-multiply"
-                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                      />
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-1">
-                    <p className="text-sm font-bold text-blue-600 uppercase tracking-wider">{sneaker.brand}</p>
-                    <h3 className="font-bold text-gray-900 text-lg truncate" title={sneaker.name}>
-                      {sneaker.name}
-                    </h3>
-                    
-                    <div className="flex justify-between items-end pt-3">
-                      <div className="flex flex-col">
-                        <span className="text-gray-400 text-xs">{sneaker.category}</span>
-                        <span className="text-gray-400 text-xs">{sneaker.color}</span>
+              {filteredProducts.map((sneaker: Sneaker) => {
+                const isFavorite = favorites.includes(sneaker.id);
+                
+                return (
+                  <div 
+                    key={sneaker.id} 
+                    className="bg-white rounded-2xl p-4 shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 group relative"
+                  >
+                    {/* Botão de Favoritar (Coração) */}
+                    <button
+                      onClick={() => toggleFavorite(sneaker.id)}
+                      className="absolute top-6 right-6 z-10 p-2 rounded-full bg-white/80 backdrop-blur-sm shadow-sm hover:bg-white text-gray-400 hover:text-red-500 transition-all active:scale-95"
+                      aria-label={isFavorite ? "Remover dos favoritos" : "Adicionar aos favoritos"}
+                    >
+                      <svg 
+                        className={`w-5 h-5 transition-colors duration-200 ${isFavorite ? 'fill-red-500 text-red-500' : 'fill-none text-gray-400'}`} 
+                        stroke="currentColor" 
+                        viewBox="0 0 24 24" 
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
+                      </svg>
+                    </button>
+
+                    <div className="aspect-square bg-gray-50 rounded-xl mb-4 overflow-hidden relative border border-gray-100 group-hover:shadow-md transition-all">
+                      <div className="w-full h-full flex items-center justify-center p-4 group-hover:scale-110 transition-transform duration-500 ease-in-out">
+                        <Image 
+                          src={sneaker.image} 
+                          alt={`Tênis ${sneaker.name}`} 
+                          fill
+                          className="object-contain p-4 mix-blend-multiply"
+                          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                        />
                       </div>
-                      <p className="font-extrabold text-gray-900 text-lg">
-                        {sneaker.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                      </p>
+                    </div>
+                    
+                    <div className="space-y-1">
+                      <p className="text-sm font-bold text-blue-600 uppercase tracking-wider">{sneaker.brand}</p>
+                      <h3 className="font-bold text-gray-900 text-lg truncate" title={sneaker.name}>
+                        {sneaker.name}
+                      </h3>
+                      
+                      <div className="flex justify-between items-end pt-3">
+                        <div className="flex flex-col">
+                          <span className="text-gray-400 text-xs">{sneaker.category}</span>
+                          <span className="text-gray-400 text-xs">{sneaker.color}</span>
+                        </div>
+                        <p className="font-extrabold text-gray-900 text-lg">
+                          {sneaker.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                        </p>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </main>
