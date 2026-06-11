@@ -14,11 +14,8 @@ export default function Home() {
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [sortOrder, setSortOrder] = useState('');
-  
-  // Estado para armazenar os IDs dos produtos favoritados
   const [favorites, setFavorites] = useState<number[]>([]);
 
-  // Carrega os favoritos salvos no localStorage assim que a página abre
   useEffect(() => {
     const savedFavorites = localStorage.getItem('sneaker-favorites');
     if (savedFavorites) {
@@ -30,9 +27,7 @@ export default function Home() {
     }
   }, []);
 
-  // Salva os favoritos no localStorage automaticamente toda vez que o estado mudar
   useEffect(() => {
-    // Evita sobrescrever o localStorage com um array vazio no primeiro render síncrono
     if (favorites.length >= 0) {
       localStorage.setItem('sneaker-favorites', JSON.stringify(favorites));
     }
@@ -45,7 +40,6 @@ export default function Home() {
     return () => clearTimeout(handler);
   }, [searchQuery]);
 
-  // Função para adicionar ou remover um item da lista de favoritos
   const toggleFavorite = (id: number) => {
     setFavorites((prev) =>
       prev.includes(id) ? prev.filter((favId) => favId !== id) : [...prev, id]
@@ -84,11 +78,11 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gray-100 p-4 md:p-8 font-sans relative">
       <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <h1 className="text-4xl font-extrabold text-gray-900 tracking-tight">
+        <h1 className="text-4xl font-extrabold text-gray-900 tracking-tight animate-fade-in-up">
           Sneaker Store
         </h1>
         
-        <div className="flex flex-wrap md:flex-nowrap gap-2 w-full md:w-auto">
+        <div className="flex flex-wrap md:flex-nowrap gap-2 w-full md:w-auto animate-fade-in-up" style={{ animationDelay: '100ms' }}>
           <div className="relative w-full md:w-80">
             <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
               <svg aria-hidden="true" className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -135,10 +129,10 @@ export default function Home() {
 
         <aside className={`
           fixed inset-y-0 left-0 z-50 w-4/5 max-w-xs bg-white p-6 shadow-2xl overflow-y-auto
-          transform transition-transform duration-300 ease-in-out
+          transform transition-transform duration-300 ease-in-out animate-fade-in-up
           ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"}
           md:relative md:translate-x-0 md:w-1/4 md:max-w-none md:bg-white/60 md:backdrop-blur-md md:border md:border-white/40 md:shadow-xl md:rounded-2xl md:overflow-visible
-        `}>
+        `} style={{ animationDelay: '200ms' }}>
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-xl font-bold text-gray-800">Filtros</h2>
             <button 
@@ -197,7 +191,7 @@ export default function Home() {
 
         <main className="w-full md:w-3/4">
           {filteredProducts.length === 0 ? (
-            <div className="bg-white rounded-2xl p-12 text-center shadow-sm border border-gray-100">
+            <div className="bg-white rounded-2xl p-12 text-center shadow-sm border border-gray-100 animate-fade-in-up" style={{ animationDelay: '300ms' }}>
               <p className="text-gray-500 text-lg">Nenhum tênis encontrado.</p>
               <button 
                 onClick={() => { setSelectedBrands([]); setSelectedCategories([]); setSearchQuery(''); setSortOrder(''); }}
@@ -207,16 +201,19 @@ export default function Home() {
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredProducts.map((sneaker: Sneaker) => {
+            <div 
+              key={debouncedQuery + selectedBrands.join() + selectedCategories.join() + sortOrder}
+              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
+            >
+              {filteredProducts.map((sneaker: Sneaker, index: number) => {
                 const isFavorite = favorites.includes(sneaker.id);
                 
                 return (
                   <div 
                     key={sneaker.id} 
-                    className="bg-white rounded-2xl p-4 shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 group relative"
+                    className="bg-white rounded-2xl p-4 shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 group relative animate-fade-in-up"
+                    style={{ animationDelay: `${index * 75}ms` }}
                   >
-                    {/* Botão de Favoritar (Coração) */}
                     <button
                       onClick={() => toggleFavorite(sneaker.id)}
                       className="absolute top-6 right-6 z-10 p-2 rounded-full bg-white/80 backdrop-blur-sm shadow-sm hover:bg-white text-gray-400 hover:text-red-500 transition-all active:scale-95"
@@ -233,7 +230,7 @@ export default function Home() {
                     </button>
 
                     <div className="aspect-square bg-gray-50 rounded-xl mb-4 overflow-hidden relative border border-gray-100 group-hover:shadow-md transition-all">
-                      <div className="w-full h-full flex items-center justify-center p-4 group-hover:scale-110 transition-transform duration-500 ease-in-out">
+                      <div className="relative w-full h-full flex items-center justify-center p-4 group-hover:scale-110 transition-transform duration-500 ease-in-out">
                         <Image 
                           src={sneaker.image} 
                           alt={`Tênis ${sneaker.name}`} 
