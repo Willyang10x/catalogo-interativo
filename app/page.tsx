@@ -7,6 +7,11 @@ import Image from 'next/image';
 const AVAILABLE_BRANDS = ["Nike", "Adidas"];
 const AVAILABLE_CATEGORIES = ["Casual", "Running", "Skate"];
 
+// 1. TIPAGEM DO CARRINHO (Tênis + Quantidade)
+interface CartItem extends Sneaker {
+  quantity: number;
+}
+
 export default function Home() {
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
@@ -16,17 +21,25 @@ export default function Home() {
   const [sortOrder, setSortOrder] = useState('');
   const [favorites, setFavorites] = useState<number[]>([]);
   const [isDarkMode, setIsDarkMode] = useState(false);
+  
+  // 2. ESTADOS DO CARRINHO
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [isCartOpen, setIsCartOpen] = useState(false);
 
   useEffect(() => {
+    // Carrega favoritos
     const savedFavorites = localStorage.getItem('sneaker-favorites');
     if (savedFavorites) {
-      try {
-        setFavorites(JSON.parse(savedFavorites));
-      } catch (e) {
-        console.error("Erro ao carregar favoritos:", e);
-      }
+      try { setFavorites(JSON.parse(savedFavorites)); } catch (e) { console.error(e); }
     }
 
+    // Carrega carrinho
+    const savedCart = localStorage.getItem('sneaker-cart');
+    if (savedCart) {
+      try { setCart(JSON.parse(savedCart)); } catch (e) { console.error(e); }
+    }
+
+    // Carrega tema
     const savedTheme = localStorage.getItem('sneaker-theme');
     if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
       setIsDarkMode(true);
@@ -35,15 +48,15 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    if (favorites.length >= 0) {
-      localStorage.setItem('sneaker-favorites', JSON.stringify(favorites));
-    }
+    if (favorites.length >= 0) localStorage.setItem('sneaker-favorites', JSON.stringify(favorites));
   }, [favorites]);
 
   useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedQuery(searchQuery);
-    }, 300);
+    if (cart.length >= 0) localStorage.setItem('sneaker-cart', JSON.stringify(cart));
+  }, [cart]);
+
+  useEffect(() => {
+    const handler = setTimeout(() => { setDebouncedQuery(searchQuery); }, 300);
     return () => clearTimeout(handler);
   }, [searchQuery]);
 
@@ -68,23 +81,52 @@ export default function Home() {
   };
 
   const toggleBrand = (brand: string) => {
-    setSelectedBrands((prev) => 
-      prev.includes(brand) ? prev.filter((b) => b !== brand) : [...prev, brand]                
-    );
+    setSelectedBrands((prev) => prev.includes(brand) ? prev.filter((b) => b !== brand) : [...prev, brand]);
   };
 
   const toggleCategory = (category: string) => {
-    setSelectedCategories((prev) => 
-      prev.includes(category) ? prev.filter((c) => c !== category) : [...prev, category]
+    setSelectedCategories((prev) => prev.includes(category) ? prev.filter((c) => c !== category) : [...prev, category]);
+  };
+
+  // 3. FUNÇÕES DO CARRINHO
+  const addToCart = (product: Sneaker) => {
+    setCart((prev) => {
+      const existingItem = prev.find((item) => item.id === product.id);
+      if (existingItem) {
+        return prev.map((item) => 
+          item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
+        );
+      }
+      return [...prev, { ...product, quantity: 1 }];
+    });
+    setIsCartOpen(true); // Abre o carrinho automaticamente para dar feedback visual
+  };
+
+  const updateCartQuantity = (id: number, delta: number) => {
+    setCart((prev) => 
+      prev.map((item) => {
+        if (item.id === id) {
+          const newQuantity = item.quantity + delta;
+          return { ...item, quantity: Math.max(0, newQuantity) }; // Impede quantidade negativa
+        }
+        return item;
+      }).filter((item) => item.quantity > 0) // Remove o item se a quantidade chegar a zero
     );
   };
+
+  const removeFromCart = (id: number) => {
+    setCart((prev) => prev.filter((item) => item.id !== id));
+  };
+
+  // 4. CÁLCULOS MATEMÁTICOS (REDUCE)
+  const cartTotalItems = cart.reduce((total, item) => total + item.quantity, 0);
+  const cartTotalPrice = cart.reduce((total, item) => total + (item.price * item.quantity), 0);
 
   const filteredProducts = useMemo(() => {
     const filtered = products.filter((sneaker) => {
       const matchesSearch = sneaker.name.toLowerCase().includes(debouncedQuery.toLowerCase());
       const matchesBrand = selectedBrands.length === 0 || selectedBrands.includes(sneaker.brand);
       const matchesCategory = selectedCategories.length === 0 || selectedCategories.includes(sneaker.category);
-      
       return matchesSearch && matchesBrand && matchesCategory;
     });
 
@@ -98,6 +140,8 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900 p-4 md:p-8 font-sans relative transition-colors duration-300">
+      
+      {/* HEADER */}
       <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <h1 className="text-4xl font-extrabold text-gray-900 dark:text-white tracking-tight animate-fade-in-up">
           Sneaker Store
@@ -117,25 +161,34 @@ export default function Home() {
             )}
           </button>
 
+          {/* BOTÃO DO CARRINHO */}
+          <button
+            onClick={() => setIsCartOpen(true)}
+            className="relative p-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm flex items-center justify-center transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
+            aria-label="Abrir carrinho"
+          >
+            <svg className="w-5 h-5 text-gray-700 dark:text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path>
+            </svg>
+            {cartTotalItems > 0 && (
+              <span className="absolute -top-2 -right-2 bg-blue-600 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center animate-pulse">
+                {cartTotalItems}
+              </span>
+            )}
+          </button>
+
           <div className="relative w-full md:w-80 flex-1">
             <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-              <svg aria-hidden="true" className="w-5 h-5 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-              </svg>
+              <svg aria-hidden="true" className="w-5 h-5 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
             </div>
-            
             <input 
-              type="text" 
-              placeholder="Buscar modelo..." 
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              type="text" placeholder="Buscar modelo..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-10 pr-4 py-3 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 rounded-xl border border-gray-200 dark:border-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all shadow-sm"
             />
           </div>
           
           <select
-            value={sortOrder}
-            onChange={(e) => setSortOrder(e.target.value)}
+            value={sortOrder} onChange={(e) => setSortOrder(e.target.value)}
             className="flex-1 md:flex-none px-4 py-3 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 rounded-xl border border-gray-200 dark:border-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none shadow-sm cursor-pointer"
           >
             <option value="">Relevância</option>
@@ -153,12 +206,73 @@ export default function Home() {
         </div>
       </div>
       
+      {/* DRAWER DO CARRINHO (Menu Lateral Direito) */}
+      {isCartOpen && (
+        <div className="fixed inset-0 z-50 flex justify-end">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity" onClick={() => setIsCartOpen(false)}></div>
+          
+          <div className="relative w-full max-w-md bg-white dark:bg-gray-900 h-full shadow-2xl flex flex-col animate-fade-in-up">
+            <div className="p-6 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                🛍️ Meu Carrinho
+              </h2>
+              <button onClick={() => setIsCartOpen(false)} className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 text-3xl">&times;</button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              {cart.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center text-center space-y-4">
+                  <span className="text-6xl">🛒</span>
+                  <p className="text-gray-500 dark:text-gray-400 text-lg">Seu carrinho está vazio.</p>
+                  <button onClick={() => setIsCartOpen(false)} className="px-6 py-2 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-semibold rounded-lg">Continuar comprando</button>
+                </div>
+              ) : (
+                cart.map((item) => (
+                  <div key={item.id} className="flex gap-4 items-center bg-gray-50 dark:bg-gray-800 p-3 rounded-xl border border-gray-100 dark:border-gray-700">
+                    <div className="relative w-20 h-20 bg-white dark:bg-gray-700 rounded-lg p-2">
+                      <Image src={item.image} alt={item.name} fill className="object-contain mix-blend-multiply dark:mix-blend-normal" />
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="font-bold text-gray-900 dark:text-white text-sm truncate w-40" title={item.name}>{item.name}</h4>
+                      <p className="font-extrabold text-blue-600 dark:text-blue-400 text-sm">{item.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+                      
+                      <div className="flex items-center gap-3 mt-2 bg-white dark:bg-gray-900 w-fit rounded-lg border border-gray-200 dark:border-gray-700">
+                        <button onClick={() => updateCartQuantity(item.id, -1)} className="px-2 py-1 text-gray-600 dark:text-gray-400 hover:text-blue-600">-</button>
+                        <span className="font-semibold text-sm text-gray-900 dark:text-white w-4 text-center">{item.quantity}</span>
+                        <button onClick={() => updateCartQuantity(item.id, 1)} className="px-2 py-1 text-gray-600 dark:text-gray-400 hover:text-blue-600">+</button>
+                      </div>
+                    </div>
+                    <button onClick={() => removeFromCart(item.id)} className="p-2 text-gray-400 hover:text-red-500 transition-colors">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {cart.length > 0 && (
+              <div className="p-6 border-t border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50">
+                <div className="flex justify-between items-center mb-4">
+                  <span className="text-gray-600 dark:text-gray-400 font-semibold">Total ({cartTotalItems} itens)</span>
+                  <span className="text-2xl font-extrabold text-gray-900 dark:text-white">
+                    {cartTotalPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                  </span>
+                </div>
+                <button className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg transition-colors text-lg">
+                  Finalizar Compra
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* CONTEÚDO PRINCIPAL (Filtros e Grid) */}
       <div className="flex flex-col md:flex-row gap-8">
+        
+        {/* SIDEBAR DE FILTROS */}
         {isMobileMenuOpen && (
-          <div 
-            className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm md:hidden transition-opacity"
-            onClick={() => setIsMobileMenuOpen(false)}
-          ></div>
+          <div className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm md:hidden transition-opacity" onClick={() => setIsMobileMenuOpen(false)}></div>
         )}
 
         <aside className={`
@@ -169,12 +283,7 @@ export default function Home() {
         `} style={{ animationDelay: '200ms' }}>
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-xl font-bold text-gray-800 dark:text-white">Filtros</h2>
-            <button 
-              onClick={() => setIsMobileMenuOpen(false)} 
-              className="md:hidden text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 text-3xl leading-none"
-            >
-              &times;
-            </button>
+            <button onClick={() => setIsMobileMenuOpen(false)} className="md:hidden text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 text-3xl leading-none">&times;</button>
           </div>
           
           <div className="space-y-6">
@@ -183,113 +292,73 @@ export default function Home() {
               <div className="space-y-2">
                 {AVAILABLE_BRANDS.map((brand) => (
                   <label key={brand} className="flex items-center space-x-3 cursor-pointer group">
-                    <input 
-                      type="checkbox" 
-                      checked={selectedBrands.includes(brand)}
-                      onChange={() => toggleBrand(brand)}
-                      className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 transition-colors" 
-                    />
+                    <input type="checkbox" checked={selectedBrands.includes(brand)} onChange={() => toggleBrand(brand)} className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600" />
                     <span className="text-gray-600 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-white transition-colors">{brand}</span>
                   </label>
                 ))}
               </div>
             </div>
-
             <hr className="border-gray-200/50 dark:border-gray-700/50" />
-
             <div>
               <h3 className="font-semibold text-gray-700 dark:text-gray-300 mb-3">Categorias</h3>
               <div className="space-y-2">
                 {AVAILABLE_CATEGORIES.map((category) => (
                   <label key={category} className="flex items-center space-x-3 cursor-pointer group">
-                    <input 
-                      type="checkbox" 
-                      checked={selectedCategories.includes(category)}
-                      onChange={() => toggleCategory(category)}
-                      className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 transition-colors" 
-                    />
+                    <input type="checkbox" checked={selectedCategories.includes(category)} onChange={() => toggleCategory(category)} className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600" />
                     <span className="text-gray-600 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-white transition-colors">{category}</span>
                   </label>
                 ))}
               </div>
             </div>
-            
-            <button 
-              onClick={() => setIsMobileMenuOpen(false)}
-              className="w-full mt-6 py-3 bg-blue-600 text-white font-bold rounded-xl md:hidden active:bg-blue-700 dark:bg-blue-500 dark:active:bg-blue-600"
-            >
-              Ver resultados
-            </button>
+            <button onClick={() => setIsMobileMenuOpen(false)} className="w-full mt-6 py-3 bg-blue-600 text-white font-bold rounded-xl md:hidden">Ver resultados</button>
           </div>
         </aside>
 
+        {/* GRID DE PRODUTOS */}
         <main className="w-full md:w-3/4">
           {filteredProducts.length === 0 ? (
             <div className="bg-white dark:bg-gray-800 rounded-2xl p-12 text-center shadow-sm border border-gray-100 dark:border-gray-700 animate-fade-in-up" style={{ animationDelay: '300ms' }}>
               <p className="text-gray-500 dark:text-gray-400 text-lg">Nenhum tênis encontrado.</p>
-              <button 
-                onClick={() => { setSelectedBrands([]); setSelectedCategories([]); setSearchQuery(''); setSortOrder(''); }}
-                className="mt-4 px-6 py-2 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-semibold rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
-              >
-                Limpar filtros
-              </button>
+              <button onClick={() => { setSelectedBrands([]); setSelectedCategories([]); setSearchQuery(''); setSortOrder(''); }} className="mt-4 px-6 py-2 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-semibold rounded-lg">Limpar filtros</button>
             </div>
           ) : (
-            <div 
-              key={debouncedQuery + selectedBrands.join() + selectedCategories.join() + sortOrder}
-              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
-            >
+            <div key={debouncedQuery + selectedBrands.join() + selectedCategories.join() + sortOrder} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredProducts.map((sneaker: Sneaker, index: number) => {
                 const isFavorite = favorites.includes(sneaker.id);
                 
                 return (
-                  <div 
-                    key={sneaker.id} 
-                    className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 dark:border-gray-700 group relative animate-fade-in-up opacity-0"
-                    style={{ animationDelay: `${index * 75}ms` }}
-                  >
-                    <button
-                      onClick={() => toggleFavorite(sneaker.id)}
-                      className="absolute top-6 right-6 z-10 p-2 rounded-full bg-white/80 dark:bg-gray-900/60 backdrop-blur-sm shadow-sm hover:bg-white dark:hover:bg-gray-800 text-gray-400 dark:text-gray-500 hover:text-red-500 dark:hover:text-red-500 transition-all active:scale-95"
-                      aria-label={isFavorite ? "Remover dos favoritos" : "Adicionar aos favoritos"}
-                    >
-                      <svg 
-                        className={`w-5 h-5 transition-colors duration-200 ${isFavorite ? 'fill-red-500 text-red-500' : 'fill-none text-gray-400 dark:text-gray-500'}`} 
-                        stroke="currentColor" 
-                        viewBox="0 0 24 24" 
-                        xmlns="http://www.w3.org/2000/svg"
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
-                      </svg>
+                  <div key={sneaker.id} className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 dark:border-gray-700 group relative animate-fade-in-up opacity-0 flex flex-col" style={{ animationDelay: `${index * 75}ms` }}>
+                    <button onClick={() => toggleFavorite(sneaker.id)} className="absolute top-6 right-6 z-10 p-2 rounded-full bg-white/80 dark:bg-gray-900/60 backdrop-blur-sm shadow-sm hover:bg-white dark:hover:bg-gray-800 text-gray-400 hover:text-red-500 dark:hover:text-red-500 transition-all active:scale-95" aria-label="Favoritar">
+                      <svg className={`w-5 h-5 transition-colors duration-200 ${isFavorite ? 'fill-red-500 text-red-500' : 'fill-none text-gray-400 dark:text-gray-500'}`} stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path></svg>
                     </button>
 
                     <div className="aspect-square bg-gray-50 dark:bg-gray-700/50 rounded-xl mb-4 overflow-hidden relative border border-gray-100 dark:border-gray-700 group-hover:shadow-md transition-all">
                       <div className="relative w-full h-full flex items-center justify-center p-4 group-hover:scale-110 transition-transform duration-500 ease-in-out">
-                        <Image 
-                          src={sneaker.image} 
-                          alt={`Tênis ${sneaker.name}`} 
-                          fill
-                          priority={index < 4} 
-                          className="object-contain p-4 mix-blend-multiply dark:mix-blend-normal"
-                          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                        />
+                        <Image src={sneaker.image} alt={`Tênis ${sneaker.name}`} fill priority={index < 4} className="object-contain p-4 mix-blend-multiply dark:mix-blend-normal" sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" />
                       </div>
                     </div>
                     
-                    <div className="space-y-1">
-                      <p className="text-sm font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider">{sneaker.brand}</p>
-                      <h3 className="font-bold text-gray-900 dark:text-white text-lg truncate" title={sneaker.name}>
-                        {sneaker.name}
-                      </h3>
-                      
-                      <div className="flex justify-between items-end pt-3">
-                        <div className="flex flex-col">
-                          <span className="text-gray-400 dark:text-gray-500 text-xs">{sneaker.category}</span>
-                          <span className="text-gray-400 dark:text-gray-500 text-xs">{sneaker.color}</span>
+                    <div className="space-y-1 flex-1 flex flex-col justify-between">
+                      <div>
+                        <p className="text-sm font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider">{sneaker.brand}</p>
+                        <h3 className="font-bold text-gray-900 dark:text-white text-lg truncate" title={sneaker.name}>{sneaker.name}</h3>
+                        <div className="flex flex-col mt-1">
+                          <span className="text-gray-400 dark:text-gray-500 text-xs">{sneaker.category} • {sneaker.color}</span>
                         </div>
-                        <p className="font-extrabold text-gray-900 dark:text-white text-lg">
+                      </div>
+                      
+                      <div className="pt-4 mt-auto space-y-3">
+                        <p className="font-extrabold text-gray-900 dark:text-white text-2xl">
                           {sneaker.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                         </p>
+                        
+                        <button 
+                          onClick={() => addToCart(sneaker)}
+                          className="w-full py-2.5 bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-bold rounded-lg hover:bg-blue-600 dark:hover:bg-blue-500 hover:text-white transition-colors flex items-center justify-center gap-2"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                          Comprar
+                        </button>
                       </div>
                     </div>
                   </div>
