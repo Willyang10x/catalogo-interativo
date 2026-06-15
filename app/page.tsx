@@ -7,7 +7,6 @@ import Image from 'next/image';
 const AVAILABLE_BRANDS = ["Nike", "Adidas"];
 const AVAILABLE_CATEGORIES = ["Casual", "Running", "Skate"];
 
-// 1. TIPAGEM DO CARRINHO (Tênis + Quantidade)
 interface CartItem extends Sneaker {
   quantity: number;
 }
@@ -21,25 +20,26 @@ export default function Home() {
   const [sortOrder, setSortOrder] = useState('');
   const [favorites, setFavorites] = useState<number[]>([]);
   const [isDarkMode, setIsDarkMode] = useState(false);
-  
-  // 2. ESTADOS DO CARRINHO
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
 
+  // ESTADOS DO MODAL DE CHECKOUT
+  const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+  const [isSuccessOpen, setIsSuccessOpen] = useState(false);
+  const [formData, setFormData] = useState({ name: '', email: '', address: '' });
+  const [formErrors, setFormErrors] = useState({ name: '', email: '', address: '' });
+
   useEffect(() => {
-    // Carrega favoritos
     const savedFavorites = localStorage.getItem('sneaker-favorites');
     if (savedFavorites) {
       try { setFavorites(JSON.parse(savedFavorites)); } catch (e) { console.error(e); }
     }
 
-    // Carrega carrinho
     const savedCart = localStorage.getItem('sneaker-cart');
     if (savedCart) {
       try { setCart(JSON.parse(savedCart)); } catch (e) { console.error(e); }
     }
 
-    // Carrega tema
     const savedTheme = localStorage.getItem('sneaker-theme');
     if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
       setIsDarkMode(true);
@@ -88,7 +88,6 @@ export default function Home() {
     setSelectedCategories((prev) => prev.includes(category) ? prev.filter((c) => c !== category) : [...prev, category]);
   };
 
-  // 3. FUNÇÕES DO CARRINHO
   const addToCart = (product: Sneaker) => {
     setCart((prev) => {
       const existingItem = prev.find((item) => item.id === product.id);
@@ -99,7 +98,7 @@ export default function Home() {
       }
       return [...prev, { ...product, quantity: 1 }];
     });
-    setIsCartOpen(true); // Abre o carrinho automaticamente para dar feedback visual
+    setIsCartOpen(true);
   };
 
   const updateCartQuantity = (id: number, delta: number) => {
@@ -107,10 +106,10 @@ export default function Home() {
       prev.map((item) => {
         if (item.id === id) {
           const newQuantity = item.quantity + delta;
-          return { ...item, quantity: Math.max(0, newQuantity) }; // Impede quantidade negativa
+          return { ...item, quantity: Math.max(0, newQuantity) };
         }
         return item;
-      }).filter((item) => item.quantity > 0) // Remove o item se a quantidade chegar a zero
+      }).filter((item) => item.quantity > 0)
     );
   };
 
@@ -118,7 +117,56 @@ export default function Home() {
     setCart((prev) => prev.filter((item) => item.id !== id));
   };
 
-  // 4. CÁLCULOS MATEMÁTICOS (REDUCE)
+  // FUNÇÕES DE VALIDAÇÃO DO FORMULÁRIO
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+    // Limpa o erro do campo enquanto o usuário digita
+    if (formErrors[name as keyof typeof formErrors]) {
+      setFormErrors((prev) => ({ ...prev, [name]: '' }));
+    }
+  };
+
+  const handleCheckoutSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    const errors = { name: '', email: '', address: '' };
+    let hasErrors = false;
+
+    if (!formData.name.trim()) {
+      errors.name = 'O nome é obrigatório.';
+      hasErrors = true;
+    } else if (formData.name.trim().length < 3) {
+      errors.name = 'O nome deve ter pelo menos 3 caracteres.';
+      hasErrors = true;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!formData.email.trim()) {
+      errors.email = 'O e-mail é obrigatório.';
+      hasErrors = true;
+    } else if (!emailRegex.test(formData.email)) {
+      errors.email = 'Insira um e-mail válido.';
+      hasErrors = true;
+    }
+
+    if (!formData.address.trim()) {
+      errors.address = 'O endereço de entrega é obrigatório.';
+      hasErrors = true;
+    }
+
+    if (hasErrors) {
+      setFormErrors(errors);
+      return;
+    }
+
+    // Fluxo de Sucesso
+    setIsCheckoutOpen(false);
+    setIsSuccessOpen(true);
+    setCart([]); // Esvazia o carrinho
+    setFormData({ name: '', email: '', address: '' }); // Limpa formulário
+  };
+
   const cartTotalItems = cart.reduce((total, item) => total + item.quantity, 0);
   const cartTotalPrice = cart.reduce((total, item) => total + (item.price * item.quantity), 0);
 
@@ -161,7 +209,6 @@ export default function Home() {
             )}
           </button>
 
-          {/* BOTÃO DO CARRINHO */}
           <button
             onClick={() => setIsCartOpen(true)}
             className="relative p-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm flex items-center justify-center transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -206,7 +253,7 @@ export default function Home() {
         </div>
       </div>
       
-      {/* DRAWER DO CARRINHO (Menu Lateral Direito) */}
+      {/* DRAWER DO CARRINHO */}
       {isCartOpen && (
         <div className="fixed inset-0 z-50 flex justify-end">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity" onClick={() => setIsCartOpen(false)}></div>
@@ -258,11 +305,89 @@ export default function Home() {
                     {cartTotalPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                   </span>
                 </div>
-                <button className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg transition-colors text-lg">
+                {/* ALTERADO: Ao clicar, fecha carrinho e abre checkout */}
+                <button 
+                  onClick={() => { setIsCartOpen(false); setIsCheckoutOpen(true); }}
+                  className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg transition-colors text-lg"
+                >
                   Finalizar Compra
                 </button>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ─── MODAL DE CHECKOUT ─── */}
+      {isCheckoutOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setIsCheckoutOpen(false)}></div>
+          
+          <div className="bg-white dark:bg-gray-800 w-full max-w-md rounded-2xl shadow-2xl p-6 relative z-10 animate-fade-in-up">
+            <button onClick={() => setIsCheckoutOpen(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-2xl font-bold">&times;</button>
+            
+            <h2 className="text-2xl font-extrabold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
+              📝 Dados de Entrega
+            </h2>
+            <p className="text-gray-500 dark:text-gray-400 text-sm mb-6">Preencha os campos abaixo para concluir seu pedido de <span className="font-bold text-blue-600 dark:text-blue-400">{cartTotalPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>.</p>
+            
+            <form onSubmit={handleCheckoutSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Nome Completo</label>
+                <input 
+                  type="text" name="name" value={formData.name} onChange={handleInputChange}
+                  className={`w-full px-4 py-2.5 rounded-xl border bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white outline-none transition-all ${formErrors.name ? 'border-red-500 focus:ring-2 focus:ring-red-500' : 'border-gray-200 dark:border-gray-700 focus:ring-2 focus:ring-blue-500'}`}
+                  placeholder="Seu nome completo"
+                />
+                {formErrors.name && <p className="text-red-500 text-xs mt-1 font-semibold">{formErrors.name}</p>}
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">E-mail</label>
+                <input 
+                  type="text" name="email" value={formData.email} onChange={handleInputChange}
+                  className={`w-full px-4 py-2.5 rounded-xl border bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white outline-none transition-all ${formErrors.email ? 'border-red-500 focus:ring-2 focus:ring-red-500' : 'border-gray-200 dark:border-gray-700 focus:ring-2 focus:ring-blue-500'}`}
+                  placeholder="seu.email@exemplo.com"
+                />
+                {formErrors.email && <p className="text-red-500 text-xs mt-1 font-semibold">{formErrors.email}</p>}
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Endereço Completo</label>
+                <input 
+                  type="text" name="address" value={formData.address} onChange={handleInputChange}
+                  className={`w-full px-4 py-2.5 rounded-xl border bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white outline-none transition-all ${formErrors.address ? 'border-red-500 focus:ring-2 focus:ring-red-500' : 'border-gray-200 dark:border-gray-700 focus:ring-2 focus:ring-blue-500'}`}
+                  placeholder="Rua, número, bairro e cidade"
+                />
+                {formErrors.address && <p className="text-red-500 text-xs mt-1 font-semibold">{formErrors.address}</p>}
+              </div>
+
+              <button type="submit" className="w-full mt-6 py-3.5 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl shadow-lg transition-colors text-base flex items-center justify-center gap-2">
+                🔒 Confirmar e Pagar
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ─── MODAL DE SUCESSO ─── */}
+      {isSuccessOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setIsSuccessOpen(false)}></div>
+          
+          <div className="bg-white dark:bg-gray-800 w-full max-w-sm rounded-2xl shadow-2xl p-8 text-center relative z-10 animate-fade-in-up">
+            <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">
+              ✅
+            </div>
+            <h3 className="text-2xl font-extrabold text-gray-900 dark:text-white mb-2">Pedido Confirmado!</h3>
+            <p className="text-gray-500 dark:text-gray-400 text-sm mb-6">Sua compra foi realizada com sucesso. Enviamos os detalhes do rastreio para o seu e-mail.</p>
+            
+            <button 
+              onClick={() => setIsSuccessOpen(false)}
+              className="w-full py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-bold rounded-xl transition-colors"
+            >
+              Ótimo, obrigado!
+            </button>
           </div>
         </div>
       )}
