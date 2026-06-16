@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { products, type Sneaker } from "../data/products";
 import Image from 'next/image';
+import Link from 'next/link';
 
 const AVAILABLE_BRANDS = ["Nike", "Adidas"];
 const AVAILABLE_CATEGORIES = ["Casual", "Running", "Skate"];
@@ -23,7 +24,6 @@ export default function Home() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
 
-  // ESTADOS DO MODAL DE CHECKOUT
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [isSuccessOpen, setIsSuccessOpen] = useState(false);
   const [formData, setFormData] = useState({ name: '', email: '', address: '' });
@@ -117,11 +117,9 @@ export default function Home() {
     setCart((prev) => prev.filter((item) => item.id !== id));
   };
 
-  // FUNÇÕES DE VALIDAÇÃO DO FORMULÁRIO
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
-    // Limpa o erro do campo enquanto o usuário digita
     if (formErrors[name as keyof typeof formErrors]) {
       setFormErrors((prev) => ({ ...prev, [name]: '' }));
     }
@@ -160,11 +158,10 @@ export default function Home() {
       return;
     }
 
-    // Fluxo de Sucesso
     setIsCheckoutOpen(false);
     setIsSuccessOpen(true);
-    setCart([]); // Esvazia o carrinho
-    setFormData({ name: '', email: '', address: '' }); // Limpa formulário
+    setCart([]);
+    setFormData({ name: '', email: '', address: '' });
   };
 
   const cartTotalItems = cart.reduce((total, item) => total + item.quantity, 0);
@@ -305,7 +302,6 @@ export default function Home() {
                     {cartTotalPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                   </span>
                 </div>
-                {/* ALTERADO: Ao clicar, fecha carrinho e abre checkout */}
                 <button 
                   onClick={() => { setIsCartOpen(false); setIsCheckoutOpen(true); }}
                   className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg transition-colors text-lg"
@@ -318,7 +314,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* ─── MODAL DE CHECKOUT ─── */}
+      {/* MODAL DE CHECKOUT */}
       {isCheckoutOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setIsCheckoutOpen(false)}></div>
@@ -370,7 +366,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* ─── MODAL DE SUCESSO ─── */}
+      {/* MODAL DE SUCESSO */}
       {isSuccessOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setIsSuccessOpen(false)}></div>
@@ -392,7 +388,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* CONTEÚDO PRINCIPAL (Filtros e Grid) */}
+      {/* CONTEÚDO PRINCIPAL */}
       <div className="flex flex-col md:flex-row gap-8">
         
         {/* SIDEBAR DE FILTROS */}
@@ -457,16 +453,18 @@ export default function Home() {
                       <svg className={`w-5 h-5 transition-colors duration-200 ${isFavorite ? 'fill-red-500 text-red-500' : 'fill-none text-gray-400 dark:text-gray-500'}`} stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path></svg>
                     </button>
 
-                    <div className="aspect-square bg-gray-50 dark:bg-gray-700/50 rounded-xl mb-4 overflow-hidden relative border border-gray-100 dark:border-gray-700 group-hover:shadow-md transition-all">
+                    <Link href={`/produto/${sneaker.id}`} className="aspect-square bg-gray-50 dark:bg-gray-700/50 rounded-xl mb-4 overflow-hidden relative border border-gray-100 dark:border-gray-700 group-hover:shadow-md transition-all block cursor-pointer">
                       <div className="relative w-full h-full flex items-center justify-center p-4 group-hover:scale-110 transition-transform duration-500 ease-in-out">
                         <Image src={sneaker.image} alt={`Tênis ${sneaker.name}`} fill priority={index < 4} className="object-contain p-4 mix-blend-multiply dark:mix-blend-normal" sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" />
                       </div>
-                    </div>
+                    </Link>
                     
                     <div className="space-y-1 flex-1 flex flex-col justify-between">
                       <div>
                         <p className="text-sm font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider">{sneaker.brand}</p>
-                        <h3 className="font-bold text-gray-900 dark:text-white text-lg truncate" title={sneaker.name}>{sneaker.name}</h3>
+                        <Link href={`/produto/${sneaker.id}`} className="hover:underline">
+                          <h3 className="font-bold text-gray-900 dark:text-white text-lg truncate" title={sneaker.name}>{sneaker.name}</h3>
+                        </Link>
                         <div className="flex flex-col mt-1">
                           <span className="text-gray-400 dark:text-gray-500 text-xs">{sneaker.category} • {sneaker.color}</span>
                         </div>
