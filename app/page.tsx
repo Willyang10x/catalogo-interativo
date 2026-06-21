@@ -8,7 +8,6 @@ import Link from 'next/link';
 const AVAILABLE_BRANDS = ["Nike", "Adidas"];
 const AVAILABLE_CATEGORIES = ["Casual", "Running", "Skate"];
 
-// 1. ATUALIZAMOS O TIPO: Agora o item do carrinho tem tamanho e um ID único
 interface CartItem extends Sneaker {
   cartItemId: string; 
   size: number;
@@ -26,11 +25,13 @@ export default function Home() {
   const [isDarkMode, setIsDarkMode] = useState(false);
   
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [isCartLoaded, setIsCartLoaded] = useState(false); // NOVO: Evita que o carrinho apague ao voltar
+  const [isCartLoaded, setIsCartLoaded] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
 
+  // ESTADOS DO MODAL DE CHECKOUT
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [isSuccessOpen, setIsSuccessOpen] = useState(false);
+  const [deliveryMethod, setDeliveryMethod] = useState<'delivery' | 'pickup'>('delivery'); // NOVO: Aba de entrega vs retirada
   const [formData, setFormData] = useState({ name: '', email: '', address: '' });
   const [formErrors, setFormErrors] = useState({ name: '', email: '', address: '' });
 
@@ -40,7 +41,6 @@ export default function Home() {
       try { setFavorites(JSON.parse(savedFavorites)); } catch (e) { console.error(e); }
     }
 
-    // 2. LÊ O CARRINHO E MARCA COMO CARREGADO
     const savedCart = localStorage.getItem('sneaker-cart');
     if (savedCart) {
       try { setCart(JSON.parse(savedCart)); } catch (e) { console.error(e); }
@@ -58,7 +58,6 @@ export default function Home() {
     if (favorites.length >= 0) localStorage.setItem('sneaker-favorites', JSON.stringify(favorites));
   }, [favorites]);
 
-  // 3. SÓ SALVA NO DISCO SE JÁ TIVER CARREGADO (Resolve o bug de não ir pro carrinho)
   useEffect(() => {
     if (isCartLoaded) {
       localStorage.setItem('sneaker-cart', JSON.stringify(cart));
@@ -96,7 +95,6 @@ export default function Home() {
     setSelectedCategories((prev) => prev.includes(category) ? prev.filter((c) => c !== category) : [...prev, category]);
   };
 
-  // 4. ATUALIZA A LÓGICA DE QUANTIDADE USANDO O cartItemId
   const updateCartQuantity = (cartItemId: string, delta: number) => {
     setCart((prev) => 
       prev.map((item) => {
@@ -109,7 +107,6 @@ export default function Home() {
     );
   };
 
-  // 5. ATUALIZA A LÓGICA DE REMOVER USANDO O cartItemId
   const removeFromCart = (cartItemId: string) => {
     setCart((prev) => prev.filter((item) => item.cartItemId !== cartItemId));
   };
@@ -134,7 +131,11 @@ export default function Home() {
     if (!formData.email.trim()) { errors.email = 'O e-mail é obrigatório.'; hasErrors = true; } 
     else if (!emailRegex.test(formData.email)) { errors.email = 'Insira um e-mail válido.'; hasErrors = true; }
 
-    if (!formData.address.trim()) { errors.address = 'O endereço é obrigatório.'; hasErrors = true; }
+    // VALIDAÇÃO: Só obriga a ter endereço se for entrega em casa!
+    if (deliveryMethod === 'delivery' && !formData.address.trim()) { 
+      errors.address = 'O endereço é obrigatório para entrega.'; 
+      hasErrors = true; 
+    }
 
     if (hasErrors) { setFormErrors(errors); return; }
 
@@ -166,7 +167,7 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900 p-4 md:p-8 font-sans relative transition-colors duration-300">
       
-      {/* HEADER */}
+      {/* HEADER PRINCIPAL */}
       <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <h1 className="text-4xl font-extrabold text-gray-900 dark:text-white tracking-tight animate-fade-in-up">
           Sneaker Store
@@ -217,7 +218,6 @@ export default function Home() {
                     </div>
                     <div className="flex-1">
                       <h4 className="font-bold text-gray-900 dark:text-white text-sm truncate w-40" title={item.name}>{item.name}</h4>
-                      {/* 6. MOSTRA O TAMANHO NO CARRINHO */}
                       <p className="text-xs text-gray-500 dark:text-gray-400">Tam: {item.size}</p>
                       <p className="font-extrabold text-blue-600 dark:text-blue-400 text-sm mt-1">{item.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
                       
@@ -247,27 +247,69 @@ export default function Home() {
         </div>
       )}
 
-      {/* MODAL DE CHECKOUT */}
+      {/* ─── MODAL DE CHECKOUT (COM O MAPA) ─── */}
       {isCheckoutOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setIsCheckoutOpen(false)}></div>
-          <div className="bg-white dark:bg-gray-800 w-full max-w-md rounded-2xl shadow-2xl p-6 relative z-10 animate-fade-in-up">
-            <button onClick={() => setIsCheckoutOpen(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl font-bold">&times;</button>
-            <h2 className="text-2xl font-extrabold text-gray-900 dark:text-white mb-2">📝 Dados de Entrega</h2>
-            <form onSubmit={handleCheckoutSubmit} className="space-y-4 mt-6">
+          <div className="bg-white dark:bg-gray-800 w-full max-w-md rounded-2xl shadow-2xl p-6 relative z-10 animate-fade-in-up max-h-[90vh] overflow-y-auto">
+            <button onClick={() => setIsCheckoutOpen(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-2xl font-bold">&times;</button>
+            <h2 className="text-2xl font-extrabold text-gray-900 dark:text-white mb-6">📝 Finalizar Pedido</h2>
+            
+            {/* ABAS: ENTREGA VS RETIRADA */}
+            <div className="flex bg-gray-100 dark:bg-gray-900 rounded-xl p-1 mb-6 border border-gray-200 dark:border-gray-700/50">
+              <button
+                type="button"
+                onClick={() => setDeliveryMethod('delivery')}
+                className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all ${deliveryMethod === 'delivery' ? 'bg-white dark:bg-gray-800 shadow-sm text-blue-600 dark:text-blue-400' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+              >
+                🚚 Entrega
+              </button>
+              <button
+                type="button"
+                onClick={() => setDeliveryMethod('pickup')}
+                className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all ${deliveryMethod === 'pickup' ? 'bg-white dark:bg-gray-800 shadow-sm text-blue-600 dark:text-blue-400' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+              >
+                🏪 Retirar na Loja
+              </button>
+            </div>
+
+            <form onSubmit={handleCheckoutSubmit} className="space-y-4">
               <div>
-                <input type="text" name="name" value={formData.name} onChange={handleInputChange} className="w-full px-4 py-2.5 rounded-xl border bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white outline-none" placeholder="Seu nome completo" />
+                <input type="text" name="name" value={formData.name} onChange={handleInputChange} className="w-full px-4 py-2.5 rounded-xl border bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-700" placeholder="Seu nome completo" />
                 {formErrors.name && <p className="text-red-500 text-xs mt-1 font-semibold">{formErrors.name}</p>}
               </div>
+              
               <div>
-                <input type="text" name="email" value={formData.email} onChange={handleInputChange} className="w-full px-4 py-2.5 rounded-xl border bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white outline-none" placeholder="E-mail" />
+                <input type="text" name="email" value={formData.email} onChange={handleInputChange} className="w-full px-4 py-2.5 rounded-xl border bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-700" placeholder="E-mail" />
                 {formErrors.email && <p className="text-red-500 text-xs mt-1 font-semibold">{formErrors.email}</p>}
               </div>
-              <div>
-                <input type="text" name="address" value={formData.address} onChange={handleInputChange} className="w-full px-4 py-2.5 rounded-xl border bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white outline-none" placeholder="Endereço completo" />
-                {formErrors.address && <p className="text-red-500 text-xs mt-1 font-semibold">{formErrors.address}</p>}
-              </div>
-              <button type="submit" className="w-full mt-6 py-3.5 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl shadow-lg transition-colors flex items-center justify-center gap-2">🔒 Confirmar e Pagar</button>
+
+              {/* RENDERIZAÇÃO CONDICIONAL DA OPÇÃO ESCOLHIDA */}
+              {deliveryMethod === 'delivery' ? (
+                <div>
+                  <input type="text" name="address" value={formData.address} onChange={handleInputChange} className="w-full px-4 py-2.5 rounded-xl border bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-700" placeholder="Endereço completo para entrega" />
+                  {formErrors.address && <p className="text-red-500 text-xs mt-1 font-semibold">{formErrors.address}</p>}
+                </div>
+              ) : (
+                <div className="rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 relative h-48 mt-2 shadow-inner">
+                  {/* O TRUQUE DE CSS ESTÁ AQUI: invert + hue-rotate */}
+                  <iframe 
+                    src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3657.065830118635!2d-46.652984!3d-23.566085!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x94ce59c8da0aa315%3A0xd59f9431f2c9776a!2sAv.%20Paulista%20-%20Bela%20Vista%2C%20S%C3%A3o%20Paulo%20-%20SP!5e0!3m2!1spt-BR!2sbr!4v1715000000000!5m2!1spt-BR!2sbr"
+                    width="100%" height="100%" 
+                    style={{ border: 0, filter: isDarkMode ? 'invert(90%) hue-rotate(180deg) brightness(85%) contrast(110%)' : 'none', transition: 'filter 0.3s' }} 
+                    loading="lazy" referrerPolicy="no-referrer-when-downgrade"
+                  ></iframe>
+                  <div className="absolute bottom-0 left-0 right-0 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md p-3 border-t border-gray-200 dark:border-gray-700">
+                    <p className="text-sm font-bold text-gray-900 dark:text-white">Flagship Sneaker Store</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Av. Paulista, São Paulo - SP</p>
+                    <p className="text-xs text-[#00ff66] font-semibold mt-1">✓ Disponível para retirar amanhã</p>
+                  </div>
+                </div>
+              )}
+
+              <button type="submit" className="w-full mt-6 py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg transition-colors flex items-center justify-center gap-2">
+                🔒 Pagar {cartTotalPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+              </button>
             </form>
           </div>
         </div>
@@ -280,14 +322,52 @@ export default function Home() {
           <div className="bg-white dark:bg-gray-800 w-full max-w-sm rounded-2xl shadow-2xl p-8 text-center relative z-10 animate-fade-in-up">
             <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">✅</div>
             <h3 className="text-2xl font-extrabold text-gray-900 dark:text-white mb-2">Pedido Confirmado!</h3>
-            <button onClick={() => setIsSuccessOpen(false)} className="w-full py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-bold rounded-xl mt-6">Ótimo, obrigado!</button>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Enviamos todos os detalhes e o código de acompanhamento para o seu e-mail.</p>
+            <button onClick={() => setIsSuccessOpen(false)} className="w-full py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-bold rounded-xl">Ótimo, obrigado!</button>
           </div>
         </div>
       )}
 
-      {/* CONTEÚDO PRINCIPAL */}
+      {/* CONTEÚDO PRINCIPAL (Grid de Tênis) */}
       <div className="flex flex-col md:flex-row gap-8">
-        <main className="w-full">
+        {/* ... (O restante da Sidebar e o Grid continuam idênticos) ... */}
+        {isMobileMenuOpen && (
+          <div className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm md:hidden transition-opacity" onClick={() => setIsMobileMenuOpen(false)}></div>
+        )}
+        <aside className={`fixed inset-y-0 left-0 z-50 w-4/5 max-w-xs bg-white dark:bg-gray-900 p-6 shadow-2xl overflow-y-auto transform transition-transform duration-300 ease-in-out animate-fade-in-up ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"} md:relative md:translate-x-0 md:w-1/4 md:max-w-none md:bg-white/60 md:dark:bg-gray-800/80 md:backdrop-blur-md md:border md:border-gray-200/50 md:dark:border-gray-700/50 md:shadow-xl md:rounded-2xl md:overflow-visible`} style={{ animationDelay: '200ms' }}>
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-xl font-bold text-gray-800 dark:text-white">Filtros</h2>
+            <button onClick={() => setIsMobileMenuOpen(false)} className="md:hidden text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 text-3xl leading-none">&times;</button>
+          </div>
+          <div className="space-y-6">
+            <div>
+              <h3 className="font-semibold text-gray-700 dark:text-gray-300 mb-3">Marcas</h3>
+              <div className="space-y-2">
+                {AVAILABLE_BRANDS.map((brand) => (
+                  <label key={brand} className="flex items-center space-x-3 cursor-pointer group">
+                    <input type="checkbox" checked={selectedBrands.includes(brand)} onChange={() => toggleBrand(brand)} className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600" />
+                    <span className="text-gray-600 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-white transition-colors">{brand}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+            <hr className="border-gray-200/50 dark:border-gray-700/50" />
+            <div>
+              <h3 className="font-semibold text-gray-700 dark:text-gray-300 mb-3">Categorias</h3>
+              <div className="space-y-2">
+                {AVAILABLE_CATEGORIES.map((category) => (
+                  <label key={category} className="flex items-center space-x-3 cursor-pointer group">
+                    <input type="checkbox" checked={selectedCategories.includes(category)} onChange={() => toggleCategory(category)} className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600" />
+                    <span className="text-gray-600 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-white transition-colors">{category}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+            <button onClick={() => setIsMobileMenuOpen(false)} className="w-full mt-6 py-3 bg-blue-600 text-white font-bold rounded-xl md:hidden">Ver resultados</button>
+          </div>
+        </aside>
+
+        <main className="w-full md:w-3/4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {filteredProducts.map((sneaker: Sneaker, index: number) => {
               const isFavorite = favorites.includes(sneaker.id);
@@ -297,7 +377,7 @@ export default function Home() {
                     <svg className={`w-5 h-5 ${isFavorite ? 'fill-red-500 text-red-500' : 'fill-none'}`} stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path></svg>
                   </button>
 
-                  <Link href={`/produto/${sneaker.id}`} className="aspect-square bg-gray-50 dark:bg-gray-700/50 rounded-xl mb-4 overflow-hidden relative border border-gray-100 group-hover:shadow-md transition-all block">
+                  <Link href={`/produto/${sneaker.id}`} className="aspect-square bg-gray-50 dark:bg-gray-700/50 rounded-xl mb-4 overflow-hidden relative border border-gray-100 dark:border-gray-700 group-hover:shadow-md transition-all block">
                     <div className="relative w-full h-full flex items-center justify-center p-4 group-hover:scale-110 transition-transform duration-500">
                       <Image src={sneaker.image} alt={sneaker.name} fill priority={index < 4} className="object-contain mix-blend-multiply dark:mix-blend-normal p-4" sizes="(max-width: 768px) 100vw, 50vw" />
                     </div>
@@ -305,7 +385,7 @@ export default function Home() {
                   
                   <div className="space-y-1 flex-1 flex flex-col justify-between">
                     <div>
-                      <p className="text-sm font-bold text-blue-600 uppercase">{sneaker.brand}</p>
+                      <p className="text-sm font-bold text-blue-600 dark:text-blue-400 uppercase">{sneaker.brand}</p>
                       <Link href={`/produto/${sneaker.id}`} className="hover:underline">
                         <h3 className="font-bold text-gray-900 dark:text-white text-lg truncate">{sneaker.name}</h3>
                       </Link>
@@ -314,8 +394,6 @@ export default function Home() {
                     
                     <div className="pt-4 mt-auto space-y-3">
                       <p className="font-extrabold text-gray-900 dark:text-white text-2xl">{sneaker.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
-                      
-                      {/* 7. O BOTÃO DA HOME AGORA REDIRECIONA PARA A ESCOLHA DE TAMANHO */}
                       <Link 
                         href={`/produto/${sneaker.id}`}
                         className="w-full py-2.5 bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-bold rounded-lg hover:bg-blue-600 transition-colors flex items-center justify-center gap-2"
