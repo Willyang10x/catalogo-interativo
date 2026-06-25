@@ -34,7 +34,6 @@ function SneakerCard({
     const mouseY = e.clientY - centerY;
     const rotateX = ((mouseY / (height / 2)) * -15).toFixed(2);
     const rotateY = ((mouseX / (width / 2)) * 15).toFixed(2);
-
     setRotation({ x: Number(rotateX), y: Number(rotateY) });
     setGlare({
       x: ((e.clientX - rect.left) / width) * 100,
@@ -72,11 +71,9 @@ function SneakerCard({
             mixBlendMode: 'overlay'
           }}
         />
-
         <button onClick={() => toggleFavorite(sneaker.id)} className="absolute top-6 right-6 z-40 p-2 rounded-full bg-white/80 dark:bg-gray-900/60 backdrop-blur-md shadow-sm text-gray-400 hover:text-red-500 transition-all">
           <svg className={`w-5 h-5 ${isFavorite ? 'fill-red-500 text-red-500' : 'fill-none'}`} stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path></svg>
         </button>
-
         <Link href={`/produto/${sneaker.id}`} className="aspect-square bg-gray-50 dark:bg-gray-700/50 rounded-xl mb-4 relative border border-gray-100 dark:border-gray-700 block" style={{ transformStyle: 'preserve-3d' }}>
           <div className="relative w-full h-full flex items-center justify-center p-4">
             <Image src={sneaker.image} alt={sneaker.name} fill priority={index < 4} className="object-contain mix-blend-multiply dark:mix-blend-normal p-4 transition-transform duration-500 drop-shadow-xl" sizes="(max-width: 768px) 100vw, 50vw" style={{ transform: rotation.x !== 0 ? 'translateZ(60px) scale(1.1)' : 'translateZ(0) scale(1)' }} />
@@ -114,19 +111,26 @@ export default function Home() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isCartLoaded, setIsCartLoaded] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
-
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [isSuccessOpen, setIsSuccessOpen] = useState(false);
   const [deliveryMethod, setDeliveryMethod] = useState<'delivery' | 'pickup'>('delivery');
+  
   const [formData, setFormData] = useState({ name: '', email: '', address: '' });
   const [formErrors, setFormErrors] = useState({ name: '', email: '', address: '' });
+
+  // ESTADOS DO CUPOM DE DESCONTO
+  const [promoCode, setPromoCode] = useState('');
+  const [discount, setDiscount] = useState(0); 
+  const [promoMessage, setPromoMessage] = useState('');
 
   useEffect(() => {
     const savedFavorites = localStorage.getItem('sneaker-favorites');
     if (savedFavorites) { try { setFavorites(JSON.parse(savedFavorites)); } catch (e) { console.error(e); } }
+    
     const savedCart = localStorage.getItem('sneaker-cart');
     if (savedCart) { try { setCart(JSON.parse(savedCart)); } catch (e) { console.error(e); } }
     setIsCartLoaded(true);
+
     const savedTheme = localStorage.getItem('sneaker-theme');
     if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
       setIsDarkMode(true);
@@ -135,7 +139,9 @@ export default function Home() {
   }, []);
 
   useEffect(() => { if (favorites.length >= 0) localStorage.setItem('sneaker-favorites', JSON.stringify(favorites)); }, [favorites]);
+  
   useEffect(() => { if (isCartLoaded) localStorage.setItem('sneaker-cart', JSON.stringify(cart)); }, [cart, isCartLoaded]);
+  
   useEffect(() => { const handler = setTimeout(() => setSearchQuery(searchQuery), 300); return () => clearTimeout(handler); }, [searchQuery]);
 
   const toggleDarkMode = () => {
@@ -148,20 +154,48 @@ export default function Home() {
   };
 
   const toggleFavorite = (id: number) => { setFavorites((prev) => prev.includes(id) ? prev.filter((favId) => favId !== id) : [...prev, id]); };
+  
   const toggleBrand = (brand: string) => { setSelectedBrands((prev) => prev.includes(brand) ? prev.filter((b) => b !== brand) : [...prev, brand]); };
+  
   const toggleCategory = (category: string) => { setSelectedCategories((prev) => prev.includes(category) ? prev.filter((c) => c !== category) : [...prev, category]); };
 
   const updateCartQuantity = (cartItemId: string, delta: number) => {
     setCart((prev) => prev.map((item) => item.cartItemId === cartItemId ? { ...item, quantity: Math.max(0, item.quantity + delta) } : item).filter((item) => item.quantity > 0));
   };
+
   const removeFromCart = (cartItemId: string) => { setCart((prev) => prev.filter((item) => item.cartItemId !== cartItemId)); };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
     if (formErrors[name as keyof typeof formErrors]) setFormErrors((prev) => ({ ...prev, [name]: '' }));
   };
 
-  // ─── ATUALIZADO: LOGICA DO CHECKOUT GRAVANDO PEDIDOS REAIS ───
+  // LÓGICA DE VALIDAÇÃO DE CUPOM
+  const handleApplyPromo = () => {
+    const code = promoCode.trim().toUpperCase();
+
+    if (code === 'PROMO10') {
+      setDiscount(0.10);
+      setPromoMessage('Cupom de 10% aplicado!');
+    } else if (code === 'SNEAKER20') {
+      setDiscount(0.20);
+      setPromoMessage('Cupom especial de 20% aplicado!');
+    } else if (code === '') {
+      setDiscount(0);
+      setPromoMessage('');
+    } else {
+      setDiscount(0);
+      setPromoMessage('Cupom inválido ou expirado.');
+    }
+  };
+
+  // CÁLCULO ATUALIZADO DO CARRINHO
+  const cartTotalItems = cart.reduce((total, item) => total + item.quantity, 0);
+  const cartSubtotal = cart.reduce((total, item) => total + (item.price * item.quantity), 0);
+  const discountValue = cartSubtotal * discount;
+  const cartTotalPrice = cartSubtotal - discountValue;
+
   const handleCheckoutSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const errors = { name: '', email: '', address: '' };
@@ -169,19 +203,19 @@ export default function Home() {
 
     if (!formData.name.trim()) { errors.name = 'Obrigatório.'; hasErrors = true; } 
     else if (formData.name.trim().length < 3) { errors.name = 'Mín. 3 letras.'; hasErrors = true; }
+
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!formData.email.trim()) { errors.email = 'Obrigatório.'; hasErrors = true; } 
     else if (!emailRegex.test(formData.email)) { errors.email = 'Inválido.'; hasErrors = true; }
-    if (deliveryMethod === 'delivery' && !formData.address.trim()) { errors.address = 'Obrigatório para entrega.'; hasErrors = true; }
 
+    if (deliveryMethod === 'delivery' && !formData.address.trim()) { errors.address = 'Obrigatório para entrega.'; hasErrors = true; }
     if (hasErrors) { setFormErrors(errors); return; }
 
-    // 1. Monta a estrutura do pedido real
+    // Monta a estrutura do pedido real
     const savedOrders = localStorage.getItem('sneaker-orders');
     const currentOrders = savedOrders ? JSON.parse(savedOrders) : [];
-
     const newOrder = {
-      id: Math.floor(1000 + Math.random() * 9000), // ID de 4 dígitos
+      id: Math.floor(1000 + Math.random() * 9000),
       customerName: formData.name,
       customerEmail: formData.email,
       deliveryMethod: deliveryMethod === 'delivery' ? 'Entrega' : 'Retirada',
@@ -192,19 +226,19 @@ export default function Home() {
       itemsSummary: cart.map(item => `${item.quantity}x ${item.name} (Tam ${item.size})`).join(', ')
     };
 
-    // 2. Adiciona o pedido no topo da lista e grava no localStorage
+    // Adiciona o pedido no topo da lista e grava no localStorage
     currentOrders.unshift(newOrder);
     localStorage.setItem('sneaker-orders', JSON.stringify(currentOrders));
 
-    // 3. Finaliza a interface
+    // Finaliza a interface
     setIsCheckoutOpen(false);
     setIsSuccessOpen(true);
     setCart([]);
+    setDiscount(0); // Reseta o cupom após a compra
+    setPromoCode('');
+    setPromoMessage('');
     setFormData({ name: '', email: '', address: '' });
   };
-
-  const cartTotalItems = cart.reduce((total, item) => total + item.quantity, 0);
-  const cartTotalPrice = cart.reduce((total, item) => total + (item.price * item.quantity), 0);
 
   const filteredProducts = useMemo(() => {
     const filtered = products.filter((sneaker) => {
@@ -213,6 +247,7 @@ export default function Home() {
       const matchesCategory = selectedCategories.length === 0 || selectedCategories.includes(sneaker.category);
       return matchesSearch && matchesBrand && matchesCategory;
     });
+
     return filtered.sort((a, b) => {
       if (sortOrder === 'price-asc') return a.price - b.price;
       if (sortOrder === 'price-desc') return b.price - a.price;
@@ -251,13 +286,13 @@ export default function Home() {
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity" onClick={() => setIsCartOpen(false)}></div>
           <div className="relative w-full max-w-md bg-white dark:bg-gray-900 h-full shadow-2xl flex flex-col animate-fade-in-up">
             <div className="p-6 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">🛍️ Meu Carrinho</h2>
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">🛒 Meu Carrinho</h2>
               <button onClick={() => setIsCartOpen(false)} className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 text-3xl">×</button>
             </div>
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
               {cart.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-center space-y-4">
-                  <span className="text-6xl">🛒</span>
+                  <span className="text-6xl">🛍️</span>
                   <p className="text-gray-500 dark:text-gray-400 text-lg">Seu carrinho está vazio.</p>
                   <button onClick={() => setIsCartOpen(false)} className="px-6 py-2 bg-blue-50 dark:bg-blue-900/30 text-blue-600 font-semibold rounded-lg">Continuar comprando</button>
                 </div>
@@ -285,13 +320,59 @@ export default function Home() {
                 ))
               )}
             </div>
+            
             {cart.length > 0 && (
               <div className="p-6 border-t border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50">
-                <div className="flex justify-between items-center mb-4">
-                  <span className="text-gray-600 font-semibold">Total ({cartTotalItems} itens)</span>
-                  <span className="text-2xl font-extrabold text-gray-900 dark:text-white">{cartTotalPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                
+                {/* SESSÃO DO CUPOM DE DESCONTO */}
+                <div className="flex gap-2 mb-4">
+                  <input
+                    type="text"
+                    placeholder="Cupom (ex: PROMO10)"
+                    value={promoCode}
+                    onChange={(e) => setPromoCode(e.target.value)}
+                    className="flex-1 px-3 py-2 border rounded-lg bg-white dark:bg-gray-900 text-sm dark:text-white dark:border-gray-700 outline-none focus:ring-2 focus:ring-blue-500 uppercase placeholder:normal-case placeholder:text-gray-500"
+                  />
+                  <button
+                    onClick={handleApplyPromo}
+                    className="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 font-bold rounded-lg text-sm transition-colors text-gray-800 dark:text-white"
+                  >
+                    Aplicar
+                  </button>
                 </div>
-                <button onClick={() => { setIsCartOpen(false); setIsCheckoutOpen(true); }} className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg transition-colors text-lg">Finalizar Compra</button>
+                {promoMessage && (
+                  <p className={`text-xs font-semibold mb-4 ${discount > 0 ? 'text-green-500' : 'text-red-500'}`}>
+                    {promoMessage}
+                  </p>
+                )}
+
+                {/* RESUMO DOS VALORES */}
+                <div className="space-y-2 mb-4">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600 dark:text-gray-400 font-semibold text-sm">Subtotal ({cartTotalItems} itens)</span>
+                    <span className="font-bold text-gray-900 dark:text-white text-sm">
+                      {cartSubtotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                    </span>
+                  </div>
+                  
+                  {discount > 0 && (
+                    <div className="flex justify-between items-center text-green-500 text-sm">
+                      <span className="font-semibold">Desconto ({discount * 100}%)</span>
+                      <span className="font-bold">- {discountValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                    </div>
+                  )}
+
+                  <div className="flex justify-between items-center pt-2 border-t border-gray-200 dark:border-gray-700">
+                    <span className="text-gray-900 dark:text-white font-bold text-lg">Total Final</span>
+                    <span className="text-2xl font-extrabold text-blue-600 dark:text-blue-400">
+                      {cartTotalPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                    </span>
+                  </div>
+                </div>
+
+                <button onClick={() => { setIsCartOpen(false); setIsCheckoutOpen(true); }} className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg transition-colors text-lg">
+                  Finalizar Compra
+                </button>
               </div>
             )}
           </div>
@@ -304,7 +385,7 @@ export default function Home() {
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setIsCheckoutOpen(false)}></div>
           <div className="bg-white dark:bg-gray-800 w-full max-w-md rounded-2xl shadow-2xl p-6 relative z-10 animate-fade-in-up max-h-[90vh] overflow-y-auto">
             <button onClick={() => setIsCheckoutOpen(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl font-bold">×</button>
-            <h2 className="text-2xl font-extrabold text-gray-900 dark:text-white mb-6">📝 Finalizar Pedido</h2>
+            <h2 className="text-2xl font-extrabold text-gray-900 dark:text-white mb-6">🔒 Finalizar Pedido</h2>
             
             <div className="flex bg-gray-100 dark:bg-gray-900 rounded-xl p-1 mb-6 border border-gray-200 dark:border-gray-700/50">
               <button type="button" onClick={() => setDeliveryMethod('delivery')} className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all ${deliveryMethod === 'delivery' ? 'bg-white dark:bg-gray-800 shadow-sm text-blue-600 dark:text-blue-400' : 'text-gray-500 hover:text-gray-700'}`}>🚚 Entrega</button>
@@ -320,6 +401,7 @@ export default function Home() {
                 <input type="text" name="email" value={formData.email} onChange={handleInputChange} className="w-full px-4 py-2.5 rounded-xl border bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-700" placeholder="E-mail" />
                 {formErrors.email && <p className="text-red-500 text-xs mt-1 font-semibold">{formErrors.email}</p>}
               </div>
+              
               {deliveryMethod === 'delivery' ? (
                 <div>
                   <input type="text" name="address" value={formData.address} onChange={handleInputChange} className="w-full px-4 py-2.5 rounded-xl border bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-700" placeholder="Endereço completo para entrega" />
@@ -330,7 +412,10 @@ export default function Home() {
                   <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3657.065830118635!2d-46.652984!3d-23.566085!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x94ce59c8da0aa315%3A0xd59f9431f2c9776a!2sAv.%20Paulista%20-%20Bela%20Vista%2C%20S%C3%A3o%20Paulo%20-%20SP!5e0!3m2!1spt-BR!2sbr!4v1715000000000!5m2!1spt-BR!2sbr" width="100%" height="100%" style={{ border: 0, filter: isDarkMode ? 'invert(90%) hue-rotate(180deg) brightness(85%) contrast(110%)' : 'none', transition: 'filter 0.3s' }} loading="lazy" referrerPolicy="no-referrer-when-downgrade"></iframe>
                 </div>
               )}
-              <button type="submit" className="w-full mt-6 py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg transition-colors flex items-center justify-center gap-2">🔒 Pagar {cartTotalPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</button>
+
+              <button type="submit" className="w-full mt-6 py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg transition-colors flex items-center justify-center gap-2">
+                💳 Pagar {cartTotalPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+              </button>
             </form>
           </div>
         </div>
@@ -374,7 +459,6 @@ export default function Home() {
             </div>
           </div>
         </aside>
-
         <main className="w-full md:w-3/4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-6">
             {filteredProducts.map((sneaker: Sneaker, index: number) => (
