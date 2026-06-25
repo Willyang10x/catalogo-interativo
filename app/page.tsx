@@ -14,11 +14,10 @@ interface CartItem extends Sneaker {
   quantity: number;
 }
 
-// ─── COMPONENTE DO CARD COM FÍSICA 3D ───
 function SneakerCard({ 
-  sneaker, index, isFavorite, toggleFavorite, addToCart 
+  sneaker, index, isFavorite, toggleFavorite 
 }: { 
-  sneaker: Sneaker, index: number, isFavorite: boolean, toggleFavorite: (id: number) => void, addToCart: (s: Sneaker) => void 
+  sneaker: Sneaker, index: number, isFavorite: boolean, toggleFavorite: (id: number) => void 
 }) {
   const cardRef = useRef<HTMLDivElement>(null);
   const [rotation, setRotation] = useState({ x: 0, y: 0 });
@@ -29,22 +28,14 @@ function SneakerCard({
     const rect = cardRef.current.getBoundingClientRect();
     const width = rect.width;
     const height = rect.height;
-    
-    // Ponto central do card
     const centerX = rect.left + width / 2;
     const centerY = rect.top + height / 2;
-    
-    // Vetor de distância do cursor até o centro
     const mouseX = e.clientX - centerX;
     const mouseY = e.clientY - centerY;
-    
-    // Limites de rotação (Máx 15 graus)
     const rotateX = ((mouseY / (height / 2)) * -15).toFixed(2);
     const rotateY = ((mouseX / (width / 2)) * 15).toFixed(2);
 
     setRotation({ x: Number(rotateX), y: Number(rotateY) });
-
-    // Cálculo da luz refletida (Glare)
     setGlare({
       x: ((e.clientX - rect.left) / width) * 100,
       y: ((e.clientY - rect.top) / height) * 100,
@@ -54,19 +45,14 @@ function SneakerCard({
 
   const handleMouseLeave = () => {
     setRotation({ x: 0, y: 0 });
-    setGlare({ x: 50, y: 50, opacity: 0 }); // Reseta a luz e a rotação
+    setGlare({ x: 50, y: 50, opacity: 0 });
   };
 
   return (
     <div
-      ref={cardRef}
-      onMouseMove={handleMouseMove}
-      onMouseLeave={handleMouseLeave}
+      ref={cardRef} onMouseMove={handleMouseMove} onMouseLeave={handleMouseLeave}
       className="relative transition-all duration-300 ease-out animate-fade-in-up group"
-      style={{
-        animationDelay: `${index * 75}ms`,
-        perspective: '1000px' // Define a profundidade do eixo Z
-      }}
+      style={{ animationDelay: `${index * 75}ms`, perspective: '1000px' }}
     >
       <div
         className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-gray-700 h-full flex flex-col relative overflow-hidden will-change-transform"
@@ -78,7 +64,6 @@ function SneakerCard({
           transition: 'transform 0.1s ease-out'
         }}
       >
-        {/* Camada de Reflexo de Luz */}
         <div
           className="absolute inset-0 z-50 pointer-events-none transition-opacity duration-300 rounded-2xl"
           style={{
@@ -88,25 +73,13 @@ function SneakerCard({
           }}
         />
 
-        <button 
-          onClick={() => toggleFavorite(sneaker.id)} 
-          className="absolute top-6 right-6 z-40 p-2 rounded-full bg-white/80 dark:bg-gray-900/60 backdrop-blur-md shadow-sm hover:bg-white text-gray-400 hover:text-red-500 transition-all active:scale-95"
-          style={{ transform: 'translateZ(30px)' }} // O botão "flutua" 30px à frente
-        >
+        <button onClick={() => toggleFavorite(sneaker.id)} className="absolute top-6 right-6 z-40 p-2 rounded-full bg-white/80 dark:bg-gray-900/60 backdrop-blur-md shadow-sm text-gray-400 hover:text-red-500 transition-all">
           <svg className={`w-5 h-5 ${isFavorite ? 'fill-red-500 text-red-500' : 'fill-none'}`} stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path></svg>
         </button>
 
         <Link href={`/produto/${sneaker.id}`} className="aspect-square bg-gray-50 dark:bg-gray-700/50 rounded-xl mb-4 relative border border-gray-100 dark:border-gray-700 block" style={{ transformStyle: 'preserve-3d' }}>
           <div className="relative w-full h-full flex items-center justify-center p-4">
-            <Image 
-              src={sneaker.image} 
-              alt={sneaker.name} 
-              fill 
-              priority={index < 4} 
-              className="object-contain mix-blend-multiply dark:mix-blend-normal p-4 transition-transform duration-500 drop-shadow-xl" 
-              sizes="(max-width: 768px) 100vw, 50vw" 
-              style={{ transform: rotation.x !== 0 ? 'translateZ(60px) scale(1.1)' : 'translateZ(0) scale(1)' }} // O Tênis flutua MUITO à frente
-            />
+            <Image src={sneaker.image} alt={sneaker.name} fill priority={index < 4} className="object-contain mix-blend-multiply dark:mix-blend-normal p-4 transition-transform duration-500 drop-shadow-xl" sizes="(max-width: 768px) 100vw, 50vw" style={{ transform: rotation.x !== 0 ? 'translateZ(60px) scale(1.1)' : 'translateZ(0) scale(1)' }} />
           </div>
         </Link>
         
@@ -118,15 +91,9 @@ function SneakerCard({
             </Link>
             <span className="text-gray-400 dark:text-gray-500 text-xs">{sneaker.category} • {sneaker.color}</span>
           </div>
-          
           <div className="pt-4 mt-auto space-y-3">
             <p className="font-extrabold text-gray-900 dark:text-white text-2xl">{sneaker.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
-            <Link 
-              href={`/produto/${sneaker.id}`}
-              className="w-full py-2.5 bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-bold rounded-lg hover:bg-blue-600 dark:hover:bg-blue-500 transition-colors flex items-center justify-center gap-2 relative z-20"
-            >
-              Ver Detalhes
-            </Link>
+            <Link href={`/produto/${sneaker.id}`} className="w-full py-2.5 bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-bold rounded-lg hover:bg-blue-600 dark:hover:bg-blue-500 transition-colors flex items-center justify-center gap-2 relative z-20">Ver Detalhes</Link>
           </div>
         </div>
       </div>
@@ -134,7 +101,6 @@ function SneakerCard({
   );
 }
 
-// ─── APLICAÇÃO PRINCIPAL ───
 export default function Home() {
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
@@ -157,16 +123,10 @@ export default function Home() {
 
   useEffect(() => {
     const savedFavorites = localStorage.getItem('sneaker-favorites');
-    if (savedFavorites) {
-      try { setFavorites(JSON.parse(savedFavorites)); } catch (e) { console.error(e); }
-    }
-
+    if (savedFavorites) { try { setFavorites(JSON.parse(savedFavorites)); } catch (e) { console.error(e); } }
     const savedCart = localStorage.getItem('sneaker-cart');
-    if (savedCart) {
-      try { setCart(JSON.parse(savedCart)); } catch (e) { console.error(e); }
-    }
+    if (savedCart) { try { setCart(JSON.parse(savedCart)); } catch (e) { console.error(e); } }
     setIsCartLoaded(true);
-
     const savedTheme = localStorage.getItem('sneaker-theme');
     if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
       setIsDarkMode(true);
@@ -174,72 +134,34 @@ export default function Home() {
     }
   }, []);
 
-  useEffect(() => {
-    if (favorites.length >= 0) localStorage.setItem('sneaker-favorites', JSON.stringify(favorites));
-  }, [favorites]);
-
-  useEffect(() => {
-    if (isCartLoaded) localStorage.setItem('sneaker-cart', JSON.stringify(cart));
-  }, [cart, isCartLoaded]);
-
-  useEffect(() => {
-    const handler = setTimeout(() => setDebouncedQuery(searchQuery), 300);
-    return () => clearTimeout(handler);
-  }, [searchQuery]);
+  useEffect(() => { if (favorites.length >= 0) localStorage.setItem('sneaker-favorites', JSON.stringify(favorites)); }, [favorites]);
+  useEffect(() => { if (isCartLoaded) localStorage.setItem('sneaker-cart', JSON.stringify(cart)); }, [cart, isCartLoaded]);
+  useEffect(() => { const handler = setTimeout(() => setSearchQuery(searchQuery), 300); return () => clearTimeout(handler); }, [searchQuery]);
 
   const toggleDarkMode = () => {
     setIsDarkMode((prev) => {
       const newMode = !prev;
-      if (newMode) {
-        document.documentElement.classList.add('dark');
-        localStorage.setItem('sneaker-theme', 'dark');
-      } else {
-        document.documentElement.classList.remove('dark');
-        localStorage.setItem('sneaker-theme', 'light');
-      }
+      if (newMode) { document.documentElement.classList.add('dark'); localStorage.setItem('sneaker-theme', 'dark'); } 
+      else { document.documentElement.classList.remove('dark'); localStorage.setItem('sneaker-theme', 'light'); }
       return newMode;
     });
   };
 
-  const toggleFavorite = (id: number) => {
-    setFavorites((prev) => prev.includes(id) ? prev.filter((favId) => favId !== id) : [...prev, id]);
-  };
-
-  const toggleBrand = (brand: string) => {
-    setSelectedBrands((prev) => prev.includes(brand) ? prev.filter((b) => b !== brand) : [...prev, brand]);
-  };
-
-  const toggleCategory = (category: string) => {
-    setSelectedCategories((prev) => prev.includes(category) ? prev.filter((c) => c !== category) : [...prev, category]);
-  };
-
-  const addToCart = (product: Sneaker) => {
-    // Mantido para uso se precisar chamar direto (a página agora envia para Detalhes)
-  };
+  const toggleFavorite = (id: number) => { setFavorites((prev) => prev.includes(id) ? prev.filter((favId) => favId !== id) : [...prev, id]); };
+  const toggleBrand = (brand: string) => { setSelectedBrands((prev) => prev.includes(brand) ? prev.filter((b) => b !== brand) : [...prev, brand]); };
+  const toggleCategory = (category: string) => { setSelectedCategories((prev) => prev.includes(category) ? prev.filter((c) => c !== category) : [...prev, category]); };
 
   const updateCartQuantity = (cartItemId: string, delta: number) => {
-    setCart((prev) => 
-      prev.map((item) => {
-        if (item.cartItemId === cartItemId) {
-          return { ...item, quantity: Math.max(0, item.quantity + delta) };
-        }
-        return item;
-      }).filter((item) => item.quantity > 0)
-    );
+    setCart((prev) => prev.map((item) => item.cartItemId === cartItemId ? { ...item, quantity: Math.max(0, item.quantity + delta) } : item).filter((item) => item.quantity > 0));
   };
-
-  const removeFromCart = (cartItemId: string) => {
-    setCart((prev) => prev.filter((item) => item.cartItemId !== cartItemId));
-  };
-
+  const removeFromCart = (cartItemId: string) => { setCart((prev) => prev.filter((item) => item.cartItemId !== cartItemId)); };
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
-    if (formErrors[name as keyof typeof formErrors]) {
-      setFormErrors((prev) => ({ ...prev, [name]: '' }));
-    }
+    if (formErrors[name as keyof typeof formErrors]) setFormErrors((prev) => ({ ...prev, [name]: '' }));
   };
 
+  // ─── ATUALIZADO: LOGICA DO CHECKOUT GRAVANDO PEDIDOS REAIS ───
   const handleCheckoutSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const errors = { name: '', email: '', address: '' };
@@ -247,18 +169,34 @@ export default function Home() {
 
     if (!formData.name.trim()) { errors.name = 'Obrigatório.'; hasErrors = true; } 
     else if (formData.name.trim().length < 3) { errors.name = 'Mín. 3 letras.'; hasErrors = true; }
-
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!formData.email.trim()) { errors.email = 'Obrigatório.'; hasErrors = true; } 
     else if (!emailRegex.test(formData.email)) { errors.email = 'Inválido.'; hasErrors = true; }
-
-    if (deliveryMethod === 'delivery' && !formData.address.trim()) { 
-      errors.address = 'Obrigatório para entrega.'; 
-      hasErrors = true; 
-    }
+    if (deliveryMethod === 'delivery' && !formData.address.trim()) { errors.address = 'Obrigatório para entrega.'; hasErrors = true; }
 
     if (hasErrors) { setFormErrors(errors); return; }
 
+    // 1. Monta a estrutura do pedido real
+    const savedOrders = localStorage.getItem('sneaker-orders');
+    const currentOrders = savedOrders ? JSON.parse(savedOrders) : [];
+
+    const newOrder = {
+      id: Math.floor(1000 + Math.random() * 9000), // ID de 4 dígitos
+      customerName: formData.name,
+      customerEmail: formData.email,
+      deliveryMethod: deliveryMethod === 'delivery' ? 'Entrega' : 'Retirada',
+      address: deliveryMethod === 'delivery' ? formData.address : 'Flagship Paulista',
+      totalPrice: cartTotalPrice,
+      totalItems: cartTotalItems,
+      date: new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }),
+      itemsSummary: cart.map(item => `${item.quantity}x ${item.name} (Tam ${item.size})`).join(', ')
+    };
+
+    // 2. Adiciona o pedido no topo da lista e grava no localStorage
+    currentOrders.unshift(newOrder);
+    localStorage.setItem('sneaker-orders', JSON.stringify(currentOrders));
+
+    // 3. Finaliza a interface
     setIsCheckoutOpen(false);
     setIsSuccessOpen(true);
     setCart([]);
@@ -275,7 +213,6 @@ export default function Home() {
       const matchesCategory = selectedCategories.length === 0 || selectedCategories.includes(sneaker.category);
       return matchesSearch && matchesBrand && matchesCategory;
     });
-
     return filtered.sort((a, b) => {
       if (sortOrder === 'price-asc') return a.price - b.price;
       if (sortOrder === 'price-desc') return b.price - a.price;
@@ -288,25 +225,20 @@ export default function Home() {
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900 p-4 md:p-8 font-sans relative transition-colors duration-300">
       
       <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <h1 className="text-4xl font-extrabold text-gray-900 dark:text-white tracking-tight animate-fade-in-up">
-          Sneaker Store
-        </h1>
+        <div className="flex items-center gap-4">
+          <h1 className="text-4xl font-extrabold text-gray-900 dark:text-white tracking-tight animate-fade-in-up">Sneaker Store</h1>
+          <Link href="/admin" className="text-xs bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 font-bold px-2 py-1 rounded hover:text-blue-500 transition-colors">Painel Admin</Link>
+        </div>
         <div className="flex flex-wrap md:flex-nowrap gap-2 w-full md:w-auto animate-fade-in-up" style={{ animationDelay: '100ms' }}>
           <button onClick={toggleDarkMode} className="p-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm flex items-center justify-center transition-colors">
-            {isDarkMode ? (
-              <svg className="w-5 h-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4.22 4.22a1 1 0 011.415 0l.708.708a1 1 0 01-1.414 1.414l-.708-.708a1 1 0 010-1.414zM18 10a1 1 0 01-1 1h-1a1 1 0 110-2h1a1 1 0 011 1zm-4.22 4.22a1 1 0 010 1.415l-.708.708a1 1 0 01-1.414-1.414l.708-.708a1 1 0 011.415 0zM10 16a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zm-4.22-4.22a1 1 0 01-1.415 0l-.708-.708a1 1 0 011.414-1.414l.708.708a1 1 0 010 1.414zM4 10a1 1 0 01-1 1H2a1 1 0 110-2h1a1 1 0 011 1zm4.22-4.22a1 1 0 010-1.415l-.708-.708a1 1 0 011.414 1.414l-.708.708a1 1 0 01-1.415 0zM10 5a5 5 0 100 10 5 5 0 000-10z" clipRule="evenodd" /></svg>
-            ) : (
-              <svg className="w-5 h-5 text-gray-600" fill="currentColor" viewBox="0 0 20 20"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" /></svg>
-            )}
+            {isDarkMode ? <svg className="w-5 h-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4.22 4.22a1 1 0 011.415 0l.708.708a1 1 0 01-1.414 1.414l-.708-.708a1 1 0 010-1.414zM18 10a1 1 0 01-1 1h-1a1 1 0 110-2h1a1 1 0 011 1zm-4.22 4.22a1 1 0 010 1.415l-.708.708a1 1 0 01-1.414-1.414l.708-.708a1 1 0 011.415 0zM10 16a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zm-4.22-4.22a1 1 0 01-1.415 0l-.708-.708a1 1 0 011.414-1.414l.708.708a1 1 0 010 1.414zM4 10a1 1 0 01-1 1H2a1 1 0 110-2h1a1 1 0 011 1zm4.22-4.22a1 1 0 010-1.415l-.708-.708a1 1 0 011.414 1.414l-.708.708a1 1 0 01-1.415 0zM10 5a5 5 0 100 10 5 5 0 000-10z" clipRule="evenodd" /></svg> : <svg className="w-5 h-5 text-gray-600" fill="currentColor" viewBox="0 0 20 20"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" /></svg>}
           </button>
           <button onClick={() => setIsCartOpen(true)} className="relative p-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm flex items-center justify-center transition-colors">
             <svg className="w-5 h-5 text-gray-700 dark:text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path></svg>
             {cartTotalItems > 0 && <span className="absolute -top-2 -right-2 bg-blue-600 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center animate-pulse">{cartTotalItems}</span>}
           </button>
           <div className="relative w-full md:w-80 flex-1">
-            <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-              <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-            </div>
+            <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none"><svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg></div>
             <input type="text" placeholder="Buscar modelo..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-10 pr-4 py-3 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 rounded-xl border border-gray-200 dark:border-gray-700 focus:ring-2 focus:ring-blue-500 outline-none" />
           </div>
           <button onClick={() => setIsMobileMenuOpen(true)} className="md:hidden flex-1 px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl font-semibold text-gray-700 dark:text-gray-200">Filtros</button>
@@ -320,7 +252,7 @@ export default function Home() {
           <div className="relative w-full max-w-md bg-white dark:bg-gray-900 h-full shadow-2xl flex flex-col animate-fade-in-up">
             <div className="p-6 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center">
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">🛍️ Meu Carrinho</h2>
-              <button onClick={() => setIsCartOpen(false)} className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 text-3xl">&times;</button>
+              <button onClick={() => setIsCartOpen(false)} className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 text-3xl">×</button>
             </div>
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
               {cart.length === 0 ? (
@@ -371,22 +303,12 @@ export default function Home() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setIsCheckoutOpen(false)}></div>
           <div className="bg-white dark:bg-gray-800 w-full max-w-md rounded-2xl shadow-2xl p-6 relative z-10 animate-fade-in-up max-h-[90vh] overflow-y-auto">
-            <button onClick={() => setIsCheckoutOpen(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-2xl font-bold">&times;</button>
+            <button onClick={() => setIsCheckoutOpen(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl font-bold">×</button>
             <h2 className="text-2xl font-extrabold text-gray-900 dark:text-white mb-6">📝 Finalizar Pedido</h2>
             
             <div className="flex bg-gray-100 dark:bg-gray-900 rounded-xl p-1 mb-6 border border-gray-200 dark:border-gray-700/50">
-              <button
-                type="button" onClick={() => setDeliveryMethod('delivery')}
-                className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all ${deliveryMethod === 'delivery' ? 'bg-white dark:bg-gray-800 shadow-sm text-blue-600 dark:text-blue-400' : 'text-gray-500 hover:text-gray-700'}`}
-              >
-                🚚 Entrega
-              </button>
-              <button
-                type="button" onClick={() => setDeliveryMethod('pickup')}
-                className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all ${deliveryMethod === 'pickup' ? 'bg-white dark:bg-gray-800 shadow-sm text-blue-600 dark:text-blue-400' : 'text-gray-500 hover:text-gray-700'}`}
-              >
-                🏪 Retirar na Loja
-              </button>
+              <button type="button" onClick={() => setDeliveryMethod('delivery')} className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all ${deliveryMethod === 'delivery' ? 'bg-white dark:bg-gray-800 shadow-sm text-blue-600 dark:text-blue-400' : 'text-gray-500 hover:text-gray-700'}`}>🚚 Entrega</button>
+              <button type="button" onClick={() => setDeliveryMethod('pickup')} className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all ${deliveryMethod === 'pickup' ? 'bg-white dark:bg-gray-800 shadow-sm text-blue-600 dark:text-blue-400' : 'text-gray-500 hover:text-gray-700'}`}>🏪 Retirar na Loja</button>
             </div>
 
             <form onSubmit={handleCheckoutSubmit} className="space-y-4">
@@ -405,15 +327,10 @@ export default function Home() {
                 </div>
               ) : (
                 <div className="rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 relative h-48 mt-2 shadow-inner">
-                  <iframe 
-                    src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3657.065830118635!2d-46.652984!3d-23.566085!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x94ce59c8da0aa315%3A0xd59f9431f2c9776a!2sAv.%20Paulista%20-%20Bela%20Vista%2C%20S%C3%A3o%20Paulo%20-%20SP!5e0!3m2!1spt-BR!2sbr!4v1715000000000!5m2!1spt-BR!2sbr"
-                    width="100%" height="100%" style={{ border: 0, filter: isDarkMode ? 'invert(90%) hue-rotate(180deg) brightness(85%) contrast(110%)' : 'none', transition: 'filter 0.3s' }} loading="lazy" referrerPolicy="no-referrer-when-downgrade"
-                  ></iframe>
+                  <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3657.065830118635!2d-46.652984!3d-23.566085!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x94ce59c8da0aa315%3A0xd59f9431f2c9776a!2sAv.%20Paulista%20-%20Bela%20Vista%2C%20S%C3%A3o%20Paulo%20-%20SP!5e0!3m2!1spt-BR!2sbr!4v1715000000000!5m2!1spt-BR!2sbr" width="100%" height="100%" style={{ border: 0, filter: isDarkMode ? 'invert(90%) hue-rotate(180deg) brightness(85%) contrast(110%)' : 'none', transition: 'filter 0.3s' }} loading="lazy" referrerPolicy="no-referrer-when-downgrade"></iframe>
                 </div>
               )}
-              <button type="submit" className="w-full mt-6 py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg transition-colors flex items-center justify-center gap-2">
-                🔒 Pagar {cartTotalPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-              </button>
+              <button type="submit" className="w-full mt-6 py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg transition-colors flex items-center justify-center gap-2">🔒 Pagar {cartTotalPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</button>
             </form>
           </div>
         </div>
@@ -426,59 +343,42 @@ export default function Home() {
           <div className="bg-white dark:bg-gray-800 w-full max-w-sm rounded-2xl shadow-2xl p-8 text-center relative z-10 animate-fade-in-up">
             <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">✅</div>
             <h3 className="text-2xl font-extrabold text-gray-900 dark:text-white mb-2">Pedido Confirmado!</h3>
-            <button onClick={() => setIsSuccessOpen(false)} className="w-full py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-bold rounded-xl mt-6">Ótimo, obrigado!</button>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Seu pedido foi computado com sucesso no sistema da loja.</p>
+            <button onClick={() => setIsSuccessOpen(false)} className="w-full py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-bold rounded-xl">Ótimo, obrigado!</button>
           </div>
         </div>
       )}
 
-      {/* CONTEÚDO PRINCIPAL COM O NOVO COMPONENTE */}
       <div className="flex flex-col md:flex-row gap-8">
-        {isMobileMenuOpen && (
-          <div className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm md:hidden transition-opacity" onClick={() => setIsMobileMenuOpen(false)}></div>
-        )}
-        <aside className={`fixed inset-y-0 left-0 z-50 w-4/5 max-w-xs bg-white dark:bg-gray-900 p-6 shadow-2xl overflow-y-auto transform transition-transform duration-300 ease-in-out animate-fade-in-up ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"} md:relative md:translate-x-0 md:w-1/4 md:max-w-none md:bg-white/60 md:dark:bg-gray-800/80 md:backdrop-blur-md md:border md:border-gray-200/50 md:dark:border-gray-700/50 md:shadow-xl md:rounded-2xl md:overflow-visible`} style={{ animationDelay: '200ms' }}>
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-xl font-bold text-gray-800 dark:text-white">Filtros</h2>
-            <button onClick={() => setIsMobileMenuOpen(false)} className="md:hidden text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 text-3xl leading-none">&times;</button>
-          </div>
+        <aside className="w-full md:w-1/4 bg-white dark:bg-gray-800 p-6 shadow-md rounded-2xl border border-gray-200 dark:border-gray-700 h-fit">
+          <h2 className="text-xl font-bold mb-4 text-gray-800 dark:text-white">Filtros</h2>
           <div className="space-y-6">
             <div>
-              <h3 className="font-semibold text-gray-700 dark:text-gray-300 mb-3">Marcas</h3>
-              <div className="space-y-2">
-                {AVAILABLE_BRANDS.map((brand) => (
-                  <label key={brand} className="flex items-center space-x-3 cursor-pointer group">
-                    <input type="checkbox" checked={selectedBrands.includes(brand)} onChange={() => toggleBrand(brand)} className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600" />
-                    <span className="text-gray-600 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-white transition-colors">{brand}</span>
-                  </label>
-                ))}
-              </div>
+              <h3 className="font-semibold text-gray-700 dark:text-zinc-300 mb-3">Marcas</h3>
+              {AVAILABLE_BRANDS.map((brand) => (
+                <label key={brand} className="flex items-center space-x-3 cursor-pointer group mb-2">
+                  <input type="checkbox" checked={selectedBrands.includes(brand)} onChange={() => toggleBrand(brand)} className="w-4 h-4 rounded text-blue-600 bg-white dark:bg-gray-900 border-gray-300" />
+                  <span className="text-gray-600 dark:text-zinc-400">{brand}</span>
+                </label>
+              ))}
             </div>
-            <hr className="border-gray-200/50 dark:border-gray-700/50" />
+            <hr className="border-gray-200 dark:border-gray-700" />
             <div>
-              <h3 className="font-semibold text-gray-700 dark:text-gray-300 mb-3">Categorias</h3>
-              <div className="space-y-2">
-                {AVAILABLE_CATEGORIES.map((category) => (
-                  <label key={category} className="flex items-center space-x-3 cursor-pointer group">
-                    <input type="checkbox" checked={selectedCategories.includes(category)} onChange={() => toggleCategory(category)} className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600" />
-                    <span className="text-gray-600 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-white transition-colors">{category}</span>
-                  </label>
-                ))}
-              </div>
+              <h3 className="font-semibold text-gray-700 dark:text-zinc-300 mb-3">Categorias</h3>
+              {AVAILABLE_CATEGORIES.map((category) => (
+                <label key={category} className="flex items-center space-x-3 cursor-pointer group mb-2">
+                  <input type="checkbox" checked={selectedCategories.includes(category)} onChange={() => toggleCategory(category)} className="w-4 h-4 rounded text-blue-600 bg-white dark:bg-gray-900 border-gray-300" />
+                  <span className="text-gray-600 dark:text-zinc-400">{category}</span>
+                </label>
+              ))}
             </div>
           </div>
         </aside>
 
         <main className="w-full md:w-3/4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-6">
             {filteredProducts.map((sneaker: Sneaker, index: number) => (
-              <SneakerCard 
-                key={sneaker.id} 
-                sneaker={sneaker} 
-                index={index} 
-                isFavorite={favorites.includes(sneaker.id)}
-                toggleFavorite={toggleFavorite}
-                addToCart={addToCart}
-              />
+              <SneakerCard key={sneaker.id} sneaker={sneaker} index={index} isFavorite={favorites.includes(sneaker.id)} toggleFavorite={toggleFavorite} />
             ))}
           </div>
         </main>
