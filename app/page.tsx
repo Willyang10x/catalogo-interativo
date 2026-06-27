@@ -7,6 +7,7 @@ import Link from 'next/link';
 
 const AVAILABLE_BRANDS = ["Nike", "Adidas"];
 const AVAILABLE_CATEGORIES = ["Casual", "Running", "Skate"];
+const FREE_SHIPPING_THRESHOLD = 1000; // Valor para ganhar frete grátis (R$ 1.000,00)
 
 interface CartItem extends Sneaker {
   cartItemId: string; 
@@ -112,6 +113,7 @@ export default function Home() {
   const [isCartLoaded, setIsCartLoaded] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+  const [isPixOpen, setIsPixOpen] = useState(false); // NOVO ESTADO: Modal do PIX
   const [isSuccessOpen, setIsSuccessOpen] = useState(false);
   const [deliveryMethod, setDeliveryMethod] = useState<'delivery' | 'pickup'>('delivery');
   
@@ -171,31 +173,24 @@ export default function Home() {
     if (formErrors[name as keyof typeof formErrors]) setFormErrors((prev) => ({ ...prev, [name]: '' }));
   };
 
-  // LÓGICA DE VALIDAÇÃO DE CUPOM
   const handleApplyPromo = () => {
     const code = promoCode.trim().toUpperCase();
-
-    if (code === 'PROMO10') {
-      setDiscount(0.10);
-      setPromoMessage('Cupom de 10% aplicado!');
-    } else if (code === 'SNEAKER20') {
-      setDiscount(0.20);
-      setPromoMessage('Cupom especial de 20% aplicado!');
-    } else if (code === '') {
-      setDiscount(0);
-      setPromoMessage('');
-    } else {
-      setDiscount(0);
-      setPromoMessage('Cupom inválido ou expirado.');
-    }
+    if (code === 'PROMO10') { setDiscount(0.10); setPromoMessage('Cupom de 10% aplicado!'); } 
+    else if (code === 'SNEAKER20') { setDiscount(0.20); setPromoMessage('Cupom especial de 20% aplicado!'); } 
+    else if (code === '') { setDiscount(0); setPromoMessage(''); } 
+    else { setDiscount(0); setPromoMessage('Cupom inválido ou expirado.'); }
   };
 
-  // CÁLCULO ATUALIZADO DO CARRINHO
   const cartTotalItems = cart.reduce((total, item) => total + item.quantity, 0);
   const cartSubtotal = cart.reduce((total, item) => total + (item.price * item.quantity), 0);
   const discountValue = cartSubtotal * discount;
   const cartTotalPrice = cartSubtotal - discountValue;
+  
+  // CÁLCULO DA BARRA DE FRETE GRÁTIS
+  const missingForFreeShipping = Math.max(0, FREE_SHIPPING_THRESHOLD - cartTotalPrice);
+  const freeShippingProgress = Math.min(100, (cartTotalPrice / FREE_SHIPPING_THRESHOLD) * 100);
 
+  // Apenas valida os dados e abre o modal do PIX
   const handleCheckoutSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const errors = { name: '', email: '', address: '' };
@@ -211,7 +206,12 @@ export default function Home() {
     if (deliveryMethod === 'delivery' && !formData.address.trim()) { errors.address = 'Obrigatório para entrega.'; hasErrors = true; }
     if (hasErrors) { setFormErrors(errors); return; }
 
-    // Monta a estrutura do pedido real
+    setIsCheckoutOpen(false);
+    setIsPixOpen(true);
+  };
+
+  // Finaliza a compra de verdade após simular o PIX
+  const handleConfirmOrder = () => {
     const savedOrders = localStorage.getItem('sneaker-orders');
     const currentOrders = savedOrders ? JSON.parse(savedOrders) : [];
     const newOrder = {
@@ -226,15 +226,13 @@ export default function Home() {
       itemsSummary: cart.map(item => `${item.quantity}x ${item.name} (Tam ${item.size})`).join(', ')
     };
 
-    // Adiciona o pedido no topo da lista e grava no localStorage
     currentOrders.unshift(newOrder);
     localStorage.setItem('sneaker-orders', JSON.stringify(currentOrders));
 
-    // Finaliza a interface
-    setIsCheckoutOpen(false);
+    setIsPixOpen(false);
     setIsSuccessOpen(true);
     setCart([]);
-    setDiscount(0); // Reseta o cupom após a compra
+    setDiscount(0); 
     setPromoCode('');
     setPromoMessage('');
     setFormData({ name: '', email: '', address: '' });
@@ -266,7 +264,7 @@ export default function Home() {
         </div>
         <div className="flex flex-wrap md:flex-nowrap gap-2 w-full md:w-auto animate-fade-in-up" style={{ animationDelay: '100ms' }}>
           <button onClick={toggleDarkMode} className="p-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm flex items-center justify-center transition-colors">
-            {isDarkMode ? <svg className="w-5 h-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4.22 4.22a1 1 0 011.415 0l.708.708a1 1 0 01-1.414 1.414l-.708-.708a1 1 0 010-1.414zM18 10a1 1 0 01-1 1h-1a1 1 0 110-2h1a1 1 0 011 1zm-4.22 4.22a1 1 0 010 1.415l-.708.708a1 1 0 01-1.414-1.414l.708-.708a1 1 0 011.415 0zM10 16a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zm-4.22-4.22a1 1 0 01-1.415 0l-.708-.708a1 1 0 011.414-1.414l.708.708a1 1 0 010 1.414zM4 10a1 1 0 01-1 1H2a1 1 0 110-2h1a1 1 0 011 1zm4.22-4.22a1 1 0 010-1.415l-.708-.708a1 1 0 011.414 1.414l-.708.708a1 1 0 01-1.415 0zM10 5a5 5 0 100 10 5 5 0 000-10z" clipRule="evenodd" /></svg> : <svg className="w-5 h-5 text-gray-600" fill="currentColor" viewBox="0 0 20 20"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" /></svg>}
+            {isDarkMode ? <svg className="w-5 h-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4.22 4.22a1 1 0 011.415 0l.708.708a1 1 0 01-1.414 1.414l-.708-.708a1 1 0 010-1.414zM18 10a1 1 0 01-1 1h-1a1 1 0 110-2h1a1 1 0 011 1zm-4.22 4.22a1 1 0 010 1.415l-.708.708a1 1 0 01-1.414-1.414l.708-.708a1 1 0 011.415 0zM10 16a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zm-4.22-4.22a1 1 0 01-1.415 0l-.708-.708a1 1 0 011.414 1.414l-.708.708a1 1 0 01-1.415 0zM10 5a5 5 0 100 10 5 5 0 000-10z" clipRule="evenodd" /></svg> : <svg className="w-5 h-5 text-gray-600" fill="currentColor" viewBox="0 0 20 20"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" /></svg>}
           </button>
           <button onClick={() => setIsCartOpen(true)} className="relative p-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm flex items-center justify-center transition-colors">
             <svg className="w-5 h-5 text-gray-700 dark:text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path></svg>
@@ -289,6 +287,28 @@ export default function Home() {
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">🛒 Meu Carrinho</h2>
               <button onClick={() => setIsCartOpen(false)} className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 text-3xl">×</button>
             </div>
+
+            {/* NOVA BARRA DE FRETE GRÁTIS */}
+            {cart.length > 0 && (
+              <div className="px-6 pt-4">
+                <div className="bg-gray-100 dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                      {missingForFreeShipping > 0 
+                        ? `Faltam ${missingForFreeShipping.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} para Frete Grátis!` 
+                        : "🎉 Você ganhou Frete Grátis!"}
+                    </span>
+                  </div>
+                  <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
+                    <div 
+                      className="bg-blue-600 h-2.5 rounded-full transition-all duration-500" 
+                      style={{ width: `${freeShippingProgress}%` }}
+                    ></div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
               {cart.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-center space-y-4">
@@ -379,13 +399,13 @@ export default function Home() {
         </div>
       )}
 
-      {/* MODAL DE CHECKOUT */}
+      {/* MODAL DE DADOS (CHECKOUT) */}
       {isCheckoutOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setIsCheckoutOpen(false)}></div>
           <div className="bg-white dark:bg-gray-800 w-full max-w-md rounded-2xl shadow-2xl p-6 relative z-10 animate-fade-in-up max-h-[90vh] overflow-y-auto">
             <button onClick={() => setIsCheckoutOpen(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl font-bold">×</button>
-            <h2 className="text-2xl font-extrabold text-gray-900 dark:text-white mb-6">🔒 Finalizar Pedido</h2>
+            <h2 className="text-2xl font-extrabold text-gray-900 dark:text-white mb-6">📝 Seus Dados</h2>
             
             <div className="flex bg-gray-100 dark:bg-gray-900 rounded-xl p-1 mb-6 border border-gray-200 dark:border-gray-700/50">
               <button type="button" onClick={() => setDeliveryMethod('delivery')} className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all ${deliveryMethod === 'delivery' ? 'bg-white dark:bg-gray-800 shadow-sm text-blue-600 dark:text-blue-400' : 'text-gray-500 hover:text-gray-700'}`}>🚚 Entrega</button>
@@ -414,9 +434,55 @@ export default function Home() {
               )}
 
               <button type="submit" className="w-full mt-6 py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg transition-colors flex items-center justify-center gap-2">
-                💳 Pagar {cartTotalPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                Avançar para Pagamento
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* NOVO MODAL: SIMULADOR DE PIX */}
+      {isPixOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setIsPixOpen(false)}></div>
+          <div className="bg-white dark:bg-gray-800 w-full max-w-sm rounded-2xl shadow-2xl p-6 text-center relative z-10 animate-fade-in-up">
+            <button onClick={() => setIsPixOpen(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-xl font-bold">×</button>
+            <h3 className="text-xl font-extrabold text-gray-900 dark:text-white mb-2">Pagamento via PIX</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Escaneie o QR Code abaixo no app do seu banco para finalizar a compra.</p>
+            
+            {/* QR Code Falso Desenhado com CSS/SVG */}
+            <div className="w-48 h-48 mx-auto bg-white p-2 rounded-xl shadow-sm border border-gray-200 mb-6 flex items-center justify-center">
+               <svg viewBox="0 0 100 100" className="w-full h-full text-black">
+                 <rect width="100" height="100" fill="white" />
+                 <path d="M10,10 h20 v20 h-20 z M15,15 h10 v10 h-10 z" fill="currentColor"/>
+                 <path d="M70,10 h20 v20 h-20 z M75,15 h10 v10 h-10 z" fill="currentColor"/>
+                 <path d="M10,70 h20 v20 h-20 z M15,75 h10 v10 h-10 z" fill="currentColor"/>
+                 <rect x="40" y="10" width="20" height="10" fill="currentColor" />
+                 <rect x="40" y="25" width="10" height="20" fill="currentColor" />
+                 <rect x="10" y="40" width="30" height="10" fill="currentColor" />
+                 <rect x="50" y="40" width="40" height="10" fill="currentColor" />
+                 <rect x="25" y="55" width="40" height="10" fill="currentColor" />
+                 <rect x="75" y="55" width="15" height="10" fill="currentColor" />
+                 <rect x="40" y="70" width="10" height="20" fill="currentColor" />
+                 <rect x="55" y="75" width="35" height="15" fill="currentColor" />
+               </svg>
+            </div>
+            
+            <div className="bg-gray-100 dark:bg-gray-900 rounded-lg p-3 mb-6 relative group flex items-center justify-between border border-gray-200 dark:border-gray-700">
+              <span className="text-xs text-gray-500 dark:text-gray-400 font-mono truncate w-4/5">
+                00020126580014br.gov.bcb.pix0136fake-pix-key-9999-1234
+              </span>
+              <button className="text-blue-600 dark:text-blue-400 font-bold text-xs" onClick={() => alert('Chave PIX copiada!')}>Copiar</button>
+            </div>
+
+            <div className="text-xl font-black text-gray-900 dark:text-white mb-6">
+              {cartTotalPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+            </div>
+
+            <button onClick={handleConfirmOrder} className="w-full py-3 bg-green-500 hover:bg-green-600 text-white font-bold rounded-xl shadow-lg transition-colors flex justify-center items-center gap-2">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
+              Simular Pagamento Realizado
+            </button>
           </div>
         </div>
       )}
