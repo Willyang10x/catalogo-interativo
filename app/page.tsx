@@ -112,15 +112,15 @@ export default function Home() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isCartLoaded, setIsCartLoaded] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [isFavoritesOpen, setIsFavoritesOpen] = useState(false); // NOVO ESTADO: Modal de Favoritos
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
-  const [isPixOpen, setIsPixOpen] = useState(false); // NOVO ESTADO: Modal do PIX
+  const [isPixOpen, setIsPixOpen] = useState(false); 
   const [isSuccessOpen, setIsSuccessOpen] = useState(false);
   const [deliveryMethod, setDeliveryMethod] = useState<'delivery' | 'pickup'>('delivery');
   
   const [formData, setFormData] = useState({ name: '', email: '', address: '' });
   const [formErrors, setFormErrors] = useState({ name: '', email: '', address: '' });
 
-  // ESTADOS DO CUPOM DE DESCONTO
   const [promoCode, setPromoCode] = useState('');
   const [discount, setDiscount] = useState(0); 
   const [promoMessage, setPromoMessage] = useState('');
@@ -186,11 +186,9 @@ export default function Home() {
   const discountValue = cartSubtotal * discount;
   const cartTotalPrice = cartSubtotal - discountValue;
   
-  // CÁLCULO DA BARRA DE FRETE GRÁTIS
   const missingForFreeShipping = Math.max(0, FREE_SHIPPING_THRESHOLD - cartTotalPrice);
   const freeShippingProgress = Math.min(100, (cartTotalPrice / FREE_SHIPPING_THRESHOLD) * 100);
 
-  // Apenas valida os dados e abre o modal do PIX
   const handleCheckoutSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const errors = { name: '', email: '', address: '' };
@@ -210,7 +208,6 @@ export default function Home() {
     setIsPixOpen(true);
   };
 
-  // Finaliza a compra de verdade após simular o PIX
   const handleConfirmOrder = () => {
     const savedOrders = localStorage.getItem('sneaker-orders');
     const currentOrders = savedOrders ? JSON.parse(savedOrders) : [];
@@ -254,6 +251,9 @@ export default function Home() {
     });
   }, [debouncedQuery, selectedBrands, selectedCategories, sortOrder]);
 
+  // Filtra os produtos para exibir na gaveta de favoritos
+  const favoriteProducts = products.filter(p => favorites.includes(p.id));
+
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900 p-4 md:p-8 font-sans relative transition-colors duration-300">
       
@@ -262,14 +262,27 @@ export default function Home() {
           <h1 className="text-4xl font-extrabold text-gray-900 dark:text-white tracking-tight animate-fade-in-up">Sneaker Store</h1>
           <Link href="/admin" className="text-xs bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 font-bold px-2 py-1 rounded hover:text-blue-500 transition-colors">Painel Admin</Link>
         </div>
+        
         <div className="flex flex-wrap md:flex-nowrap gap-2 w-full md:w-auto animate-fade-in-up" style={{ animationDelay: '100ms' }}>
+          {/* BOTÃO DARK MODE */}
           <button onClick={toggleDarkMode} className="p-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm flex items-center justify-center transition-colors">
-            {isDarkMode ? <svg className="w-5 h-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4.22 4.22a1 1 0 011.415 0l.708.708a1 1 0 01-1.414 1.414l-.708-.708a1 1 0 010-1.414zM18 10a1 1 0 01-1 1h-1a1 1 0 110-2h1a1 1 0 011 1zm-4.22 4.22a1 1 0 010 1.415l-.708.708a1 1 0 01-1.414-1.414l.708-.708a1 1 0 011.415 0zM10 16a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zm-4.22-4.22a1 1 0 01-1.415 0l-.708-.708a1 1 0 011.414 1.414l-.708.708a1 1 0 01-1.415 0zM10 5a5 5 0 100 10 5 5 0 000-10z" clipRule="evenodd" /></svg> : <svg className="w-5 h-5 text-gray-600" fill="currentColor" viewBox="0 0 20 20"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" /></svg>}
+            {isDarkMode ? <svg className="w-5 h-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4.22 4.22a1 1 0 011.415 0l.708.708a1 1 0 01-1.414 1.414l-.708-.708a1 1 0 010-1.414zM18 10a1 1 0 01-1 1h-1a1 1 0 110-2h1a1 1 0 011 1zm-4.22 4.22a1 1 0 010 1.415l-.708.708a1 1 0 01-1.414-1.414l.708-.708a1 1 0 011.415 0zM10 16a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zm-4.22-4.22a1 1 0 01-1.415 0l-.708-.708a1 1 0 011.414-1.414l.708.708a1 1 0 010 1.414zM4 10a1 1 0 01-1 1H2a1 1 0 110-2h1a1 1 0 011 1zm4.22-4.22a1 1 0 010-1.415l-.708-.708a1 1 0 011.414 1.414l-.708.708a1 1 0 01-1.415 0zM10 5a5 5 0 100 10 5 5 0 000-10z" clipRule="evenodd" /></svg> : <svg className="w-5 h-5 text-gray-600" fill="currentColor" viewBox="0 0 20 20"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" /></svg>}
           </button>
+          
+          {/* BOTÃO DE FAVORITOS (NOVO) */}
+          <button onClick={() => setIsFavoritesOpen(true)} className="relative p-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm flex items-center justify-center transition-colors">
+            <svg className={`w-5 h-5 ${favoriteProducts.length > 0 ? 'text-red-500 fill-current' : 'text-gray-700 dark:text-gray-200 fill-none'}`} stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
+            </svg>
+            {favoriteProducts.length > 0 && <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center animate-pulse">{favoriteProducts.length}</span>}
+          </button>
+
+          {/* BOTÃO DO CARRINHO */}
           <button onClick={() => setIsCartOpen(true)} className="relative p-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm flex items-center justify-center transition-colors">
             <svg className="w-5 h-5 text-gray-700 dark:text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path></svg>
             {cartTotalItems > 0 && <span className="absolute -top-2 -right-2 bg-blue-600 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center animate-pulse">{cartTotalItems}</span>}
           </button>
+          
           <div className="relative w-full md:w-80 flex-1">
             <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none"><svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg></div>
             <input type="text" placeholder="Buscar modelo..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-10 pr-4 py-3 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 rounded-xl border border-gray-200 dark:border-gray-700 focus:ring-2 focus:ring-blue-500 outline-none" />
@@ -278,6 +291,45 @@ export default function Home() {
         </div>
       </div>
       
+      {/* DRAWER DE FAVORITOS */}
+      {isFavoritesOpen && (
+        <div className="fixed inset-0 z-50 flex justify-end">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity" onClick={() => setIsFavoritesOpen(false)}></div>
+          <div className="relative w-full max-w-md bg-white dark:bg-gray-900 h-full shadow-2xl flex flex-col animate-fade-in-up">
+            <div className="p-6 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">❤️ Meus Favoritos</h2>
+              <button onClick={() => setIsFavoritesOpen(false)} className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 text-3xl">×</button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              {favoriteProducts.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center text-center space-y-4">
+                  <span className="text-6xl">💔</span>
+                  <p className="text-gray-500 dark:text-gray-400 text-lg">Você ainda não favoritou nenhum tênis.</p>
+                </div>
+              ) : (
+                favoriteProducts.map((item) => (
+                  <div key={item.id} className="flex gap-4 items-center bg-gray-50 dark:bg-gray-800 p-3 rounded-xl border border-gray-100 dark:border-gray-700">
+                    <div className="relative w-20 h-20 bg-white dark:bg-gray-700 rounded-lg p-2">
+                      <Image src={item.image} alt={item.name} fill className="object-contain mix-blend-multiply dark:mix-blend-normal" />
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="font-bold text-gray-900 dark:text-white text-sm truncate w-40" title={item.name}>{item.name}</h4>
+                      <p className="font-extrabold text-blue-600 dark:text-blue-400 text-sm mt-1">{item.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+                      <Link href={`/produto/${item.id}`} onClick={() => setIsFavoritesOpen(false)} className="inline-block mt-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded-lg transition-colors">
+                        Ver Detalhes
+                      </Link>
+                    </div>
+                    <button onClick={() => toggleFavorite(item.id)} className="p-2 text-red-500 hover:text-red-700 transition-colors">
+                      <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path></svg>
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* DRAWER DO CARRINHO */}
       {isCartOpen && (
         <div className="fixed inset-0 z-50 flex justify-end">
@@ -288,7 +340,7 @@ export default function Home() {
               <button onClick={() => setIsCartOpen(false)} className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 text-3xl">×</button>
             </div>
 
-            {/* NOVA BARRA DE FRETE GRÁTIS */}
+            {/* BARRA DE FRETE GRÁTIS */}
             {cart.length > 0 && (
               <div className="px-6 pt-4">
                 <div className="bg-gray-100 dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
@@ -441,7 +493,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* NOVO MODAL: SIMULADOR DE PIX */}
+      {/* MODAL: SIMULADOR DE PIX */}
       {isPixOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setIsPixOpen(false)}></div>
@@ -450,7 +502,6 @@ export default function Home() {
             <h3 className="text-xl font-extrabold text-gray-900 dark:text-white mb-2">Pagamento via PIX</h3>
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Escaneie o QR Code abaixo no app do seu banco para finalizar a compra.</p>
             
-            {/* QR Code Falso Desenhado com CSS/SVG */}
             <div className="w-48 h-48 mx-auto bg-white p-2 rounded-xl shadow-sm border border-gray-200 mb-6 flex items-center justify-center">
                <svg viewBox="0 0 100 100" className="w-full h-full text-black">
                  <rect width="100" height="100" fill="white" />
