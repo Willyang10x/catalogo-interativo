@@ -17,6 +17,7 @@ interface Order {
   totalItems: number;
   date: string;
   itemsSummary: string;
+  status?: string; // NOVO: Propriedade de status do pedido
 }
 
 export function LoginForm() {
@@ -31,6 +32,7 @@ export function LoginForm() {
     setError('');
 
     const res = await authenticate(password);
+
     if (res.success) {
       router.refresh(); 
     } else {
@@ -62,11 +64,12 @@ export function LoginForm() {
 
           <button 
             type="submit" disabled={isLoading}
-            className="w-full py-4 bg-white text-black hover:bg-[#00ff66] hover:shadow-[0_0_20px_rgba(0,255,102,0.3)] font-black uppercase tracking-wider text-sm rounded-xl transition-all duration-300"
+            className="w-full py-4 bg-white text-black hover:bg-[#00ff66] hover:shadow-[0_0_20px_rgba(0,255,102,0.3)] font-black uppercase tracking-wider text-sm rounded-xl transition-all duration-300 cursor-pointer"
           >
             {isLoading ? 'Verificando Criptografia...' : 'Autenticar'}
           </button>
         </form>
+
         <div className="mt-6 text-center">
           <Link href="/" className="text-zinc-500 hover:text-white text-sm transition-colors">&larr; Voltar para a loja</Link>
         </div>
@@ -77,12 +80,12 @@ export function LoginForm() {
 
 export function Dashboard() {
   const [inventory, setInventory] = useState<Sneaker[]>([]);
-  const [orders, setOrders] = useState<Order[]>([]); // NOVO: Estado de pedidos reais do checkout
+  const [orders, setOrders] = useState<Order[]>([]);
   const router = useRouter();
 
   useEffect(() => {
     setInventory(products);
-
+    
     // CARREGA HISTÓRICO DE PEDIDOS DO LOCALSTORAGE
     const savedOrders = localStorage.getItem('sneaker-orders');
     if (savedOrders) {
@@ -99,7 +102,16 @@ export function Dashboard() {
     router.refresh();
   };
 
-  // ─── CÁLCULOS FINANCEIROS EM TEMPO REAL ───
+  // FUNÇÃO PARA ATUALIZAR STATUS DO PEDIDO
+  const updateOrderStatus = (orderId: number, newStatus: string) => {
+    const updatedOrders = orders.map(order => 
+      order.id === orderId ? { ...order, status: newStatus } : order
+    );
+    setOrders(updatedOrders);
+    localStorage.setItem('sneaker-orders', JSON.stringify(updatedOrders));
+  };
+
+  // CÁLCULOS FINANCEIROS EM TEMPO REAL 
   const totalRevenue = orders.reduce((sum, order) => sum + order.totalPrice, 0);
   const totalOrdersCount = orders.length;
 
@@ -114,7 +126,7 @@ export function Dashboard() {
             </div>
             <div className="flex items-center gap-4">
               <Link href="/" className="text-sm font-semibold text-zinc-400 hover:text-white transition-colors">Ver Vitrine</Link>
-              <button onClick={handleLogout} className="text-sm font-bold bg-zinc-800 hover:bg-red-500/20 hover:text-red-500 text-zinc-300 px-4 py-2 rounded-lg transition-colors">
+              <button onClick={handleLogout} className="text-sm font-bold bg-zinc-800 hover:bg-red-500/20 hover:text-red-500 text-zinc-300 px-4 py-2 rounded-lg transition-colors cursor-pointer">
                 Sair
               </button>
             </div>
@@ -138,12 +150,14 @@ export function Dashboard() {
             </p>
             <p className="text-zinc-500 text-xs font-bold mt-2">Baseado em checkouts validados</p>
           </div>
+          
           <div className="bg-zinc-900/40 backdrop-blur-md p-6 rounded-2xl border border-zinc-800 shadow-lg relative overflow-hidden">
             <div className="absolute top-0 right-0 w-24 h-24 bg-[#00ff66]/10 rounded-full blur-2xl"></div>
             <h3 className="text-zinc-400 text-sm font-bold uppercase tracking-wider mb-2">Vendas Convertidas</h3>
             <p className="text-3xl font-black text-white">{totalOrdersCount}</p>
             <p className="text-zinc-500 text-xs mt-2">Pedidos fechados pelo cliente</p>
           </div>
+
           <div className="bg-zinc-900/40 backdrop-blur-md p-6 rounded-2xl border border-zinc-800 shadow-lg relative overflow-hidden">
             <div className="absolute top-0 right-0 w-24 h-24 bg-purple-500/10 rounded-full blur-2xl"></div>
             <h3 className="text-zinc-400 text-sm font-bold uppercase tracking-wider mb-2">Produtos no Portfólio</h3>
@@ -152,7 +166,7 @@ export function Dashboard() {
           </div>
         </div>
 
-        {/* NOVO: TABELA DE PEDIDOS REAIS DO CHECKOUT */}
+        {/* TABELA DE PEDIDOS COM STATUS */}
         <div className="bg-zinc-900/40 backdrop-blur-md rounded-2xl border border-zinc-800 shadow-lg overflow-hidden mb-10">
           <div className="p-6 border-b border-zinc-800">
             <h3 className="text-lg font-black">Histórico de Pedidos Recebidos</h3>
@@ -170,33 +184,59 @@ export function Dashboard() {
                     <th className="p-4 font-bold">Cliente / Destino</th>
                     <th className="p-4 font-bold">Itens do Pedido</th>
                     <th className="p-4 font-bold">Método</th>
+                    <th className="p-4 font-bold text-center">Gestão de Status</th>
                     <th className="p-4 font-bold text-right">Total</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-800/50 text-sm">
-                  {orders.map((order) => (
-                    <tr key={order.id} className="hover:bg-zinc-800/30 transition-colors">
-                      <td className="p-4">
-                        <p className="font-bold text-white">#{order.id}</p>
-                        <p className="text-xs text-zinc-500 mt-0.5">{order.date}</p>
-                      </td>
-                      <td className="p-4">
-                        <p className="font-semibold text-zinc-200">{order.customerName}</p>
-                        <p className="text-xs text-zinc-500 truncate w-48" title={order.address}>{order.address}</p>
-                      </td>
-                      <td className="p-4 text-xs text-zinc-400 max-w-xs truncate" title={order.itemsSummary}>
-                        {order.itemsSummary}
-                      </td>
-                      <td className="p-4">
-                        <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase ${order.deliveryMethod === 'Entrega' ? 'bg-blue-900/30 text-blue-400 border border-blue-800/50' : 'bg-purple-900/30 text-purple-400 border border-purple-800/50'}`}>
-                          {order.deliveryMethod}
-                        </span>
-                      </td>
-                      <td className="p-4 text-right font-black text-[#00ff66]">
-                        {order.totalPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                      </td>
-                    </tr>
-                  ))}
+                  {orders.map((order) => {
+                    const currentStatus = order.status || 'Pendente';
+                    return (
+                      <tr key={order.id} className="hover:bg-zinc-800/30 transition-colors">
+                        <td className="p-4">
+                          <p className="font-bold text-white">#{order.id}</p>
+                          <p className="text-xs text-zinc-500 mt-0.5">{order.date}</p>
+                        </td>
+                        <td className="p-4">
+                          <p className="font-semibold text-zinc-200">{order.customerName}</p>
+                          <p className="text-xs text-zinc-500 truncate w-48" title={order.address}>{order.address}</p>
+                        </td>
+                        <td className="p-4 text-xs text-zinc-400 max-w-xs truncate" title={order.itemsSummary}>
+                          {order.itemsSummary}
+                        </td>
+                        <td className="p-4">
+                          <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase ${order.deliveryMethod === 'Entrega' ? 'bg-purple-900/30 text-purple-400 border border-purple-800/50' : 'bg-orange-900/30 text-orange-400 border border-orange-800/50'}`}>
+                            {order.deliveryMethod}
+                          </span>
+                        </td>
+                        <td className="p-4 text-center">
+                          <div className="flex flex-col items-center gap-2">
+                            {/* BADGE VISUAL DE STATUS */}
+                            <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider ${
+                              currentStatus === 'Pendente' ? 'bg-yellow-900/30 text-yellow-500 border border-yellow-700/50' :
+                              currentStatus === 'Pago' ? 'bg-green-900/30 text-green-500 border border-green-700/50' :
+                              'bg-blue-900/30 text-blue-500 border border-blue-700/50'
+                            }`}>
+                              {currentStatus}
+                            </span>
+                            
+                            {/* BOTÕES DE AÇÃO */}
+                            <div className="flex gap-1">
+                              {currentStatus === 'Pendente' && (
+                                <button onClick={() => updateOrderStatus(order.id, 'Pago')} className="text-[10px] bg-zinc-800 hover:bg-green-600 text-white px-2 py-1 rounded transition-colors cursor-pointer">Marcar Pago</button>
+                              )}
+                              {(currentStatus === 'Pendente' || currentStatus === 'Pago') && (
+                                <button onClick={() => updateOrderStatus(order.id, 'Enviado')} className="text-[10px] bg-zinc-800 hover:bg-blue-600 text-white px-2 py-1 rounded transition-colors cursor-pointer">Enviar</button>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="p-4 text-right font-black text-[#00ff66]">
+                          {order.totalPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             )}
@@ -207,7 +247,7 @@ export function Dashboard() {
         <div className="bg-zinc-900/40 backdrop-blur-md rounded-2xl border border-zinc-800 shadow-lg overflow-hidden">
           <div className="p-6 border-b border-zinc-800 flex justify-between items-center">
             <h3 className="text-lg font-black">Gerenciamento de Estoque</h3>
-            <button className="bg-white text-black hover:bg-[#00ff66] font-bold text-xs uppercase tracking-wider px-4 py-2 rounded-lg transition-colors">+ Novo Produto</button>
+            <button className="bg-white text-black hover:bg-[#00ff66] font-bold text-xs uppercase tracking-wider px-4 py-2 rounded-lg transition-colors cursor-pointer">+ Novo Produto</button>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
