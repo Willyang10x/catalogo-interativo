@@ -8,7 +8,6 @@ import { products } from '../../../data/products';
 
 const AVAILABLE_SIZES = [38, 39, 40, 41, 42, 43, 44];
 
-// Interface para tipar o retorno da API do ViaCEP
 interface CepData {
   logradouro: string;
   bairro: string;
@@ -27,7 +26,7 @@ export default function ProductDetails() {
   const params = useParams();
   const [selectedSize, setSelectedSize] = useState<number | null>(null);
   const [isAdded, setIsAdded] = useState(false);
-
+  
   // ESTADOS DO CÁLCULO DE FRETE
   const [cep, setCep] = useState('');
   const [loadingShipping, setLoadingShipping] = useState(false);
@@ -53,8 +52,8 @@ export default function ProductDetails() {
 
     const savedCart = localStorage.getItem('sneaker-cart');
     const currentCart = savedCart ? JSON.parse(savedCart) : [];
-
     const uniqueCartId = `${product.id}-${selectedSize}`;
+    
     const existingItemIndex = currentCart.findIndex((item: any) => item.cartItemId === uniqueCartId);
 
     if (existingItemIndex >= 0) {
@@ -73,11 +72,9 @@ export default function ProductDetails() {
     setTimeout(() => setIsAdded(false), 3000);
   };
 
-  // FUNÇÃO ASSÍNCRONA PARA CALCULAR O FRETE (API FETCH)
   const handleCalculateShipping = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validação básica do formato do CEP (apenas números)
     const cleanCep = cep.replace(/\D/g, '');
     if (cleanCep.length !== 8) {
       setShippingError('Insira um CEP válido com 8 dígitos.');
@@ -99,23 +96,18 @@ export default function ProductDetails() {
         return;
       }
 
-      // Regra de negócio fictícia baseada na Região/Estado (UF)
       let price = 25.00;
       let days = 5;
       const uf = data.uf.toUpperCase();
 
       if (['SP', 'RJ', 'MG', 'ES'].includes(uf)) {
-        price = 15.90;
-        days = 3;
+        price = 15.90; days = 3;
       } else if (['PR', 'SC', 'RS'].includes(uf)) {
-        price = 22.50;
-        days = 4;
+        price = 22.50; days = 4;
       } else if (['BA', 'PE', 'CE', 'MA', 'PB', 'RN', 'AL', 'SE', 'PI'].includes(uf)) {
-        price = 29.90;
-        days = 6;
+        price = 29.90; days = 6;
       } else {
-        price = 38.00;
-        days = 8;
+        price = 38.00; days = 8;
       }
 
       setShippingResult({
@@ -123,7 +115,6 @@ export default function ProductDetails() {
         days,
         description: `${data.localidade} - ${uf} (${data.bairro || 'Centro'})`
       });
-
     } catch (error) {
       console.error("Erro ao buscar CEP:", error);
       setShippingError('Erro ao calcular o frete. Tente novamente.');
@@ -134,6 +125,11 @@ export default function ProductDetails() {
 
   const whatsappMessage = encodeURIComponent(`Olá! Gostaria de saber mais informações sobre o tênis ${product.brand} ${product.name}.`);
   const whatsappUrl = `https://wa.me/5500999999999?text=${whatsappMessage}`;
+
+  // PRODUTOS RELACIONADOS: Filtra por mesma marca ou categoria, exclui o atual e pega no máximo 3
+  const relatedProducts = products
+    .filter(p => (p.brand === product.brand || p.category === product.category) && p.id !== product.id)
+    .slice(0, 3);
 
   return (
     <div className="min-h-screen bg-black text-white p-4 md:p-8 font-sans selection:bg-[#00ff66] selection:text-black">
@@ -190,7 +186,7 @@ export default function ProductDetails() {
                 </div>
               </div>
 
-              {/* ─── BLOCO DE CÁLCULO DE FRETE REAL (API) ─── */}
+              {/* CÁLCULO DE FRETE */}
               <div className="p-4 rounded-2xl bg-zinc-950/60 border border-zinc-800/80">
                 <span className="block font-bold text-zinc-300 text-xs uppercase tracking-wider mb-3">Calcular Frete e Prazo</span>
                 <form onSubmit={handleCalculateShipping} className="flex gap-2">
@@ -201,18 +197,16 @@ export default function ProductDetails() {
                   />
                   <button 
                     type="submit" disabled={loadingShipping}
-                    className="px-5 py-2.5 bg-zinc-800 hover:bg-zinc-700 disabled:bg-zinc-900 disabled:text-zinc-600 text-sm font-bold rounded-xl border border-zinc-700/50 transition-colors"
+                    className="px-5 py-2.5 bg-zinc-800 hover:bg-zinc-700 disabled:bg-zinc-900 disabled:text-zinc-600 text-sm font-bold rounded-xl border border-zinc-700/50 transition-colors cursor-pointer"
                   >
                     {loadingShipping ? 'Buscando...' : 'Calcular'}
                   </button>
                 </form>
 
-                {/* Retorno de Erro da API */}
                 {shippingError && (
                   <p className="text-red-500 text-xs mt-2 font-semibold">⚠️ {shippingError}</p>
                 )}
 
-                {/* Retorno de Sucesso da API com Dados Dinâmicos */}
                 {shippingResult && (
                   <div className="mt-3 pt-3 border-t border-zinc-800/50 flex justify-between items-center animate-fade-in-up">
                     <div className="text-xs">
@@ -235,12 +229,11 @@ export default function ProductDetails() {
                       ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed' 
                       : isAdded 
                         ? 'bg-green-500 text-white shadow-[0_0_25px_rgba(34,197,94,0.4)]'
-                        : 'bg-white text-black hover:bg-[#00ff66] hover:shadow-[0_0_30px_rgba(0,255,102,0.3)]'
+                        : 'bg-white text-black hover:bg-[#00ff66] hover:shadow-[0_0_30px_rgba(0,255,102,0.3)] cursor-pointer'
                   }`}
                 >
                   {isAdded ? <>✅ Adicionado!</> : <><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path></svg>{selectedSize ? 'Adicionar à Sacola' : 'Escolha o Tamanho'}</>}
                 </button>
-
                 <a 
                   href={whatsappUrl} target="_blank" rel="noopener noreferrer"
                   className="w-full py-4 rounded-2xl font-black uppercase tracking-wider text-sm flex items-center justify-center gap-3 bg-zinc-900/80 border border-zinc-800 hover:border-[#25D366]/50 text-white hover:text-[#25D366] transition-all duration-300 hover:shadow-[0_0_25px_rgba(37,211,102,0.15)]"
@@ -249,10 +242,40 @@ export default function ProductDetails() {
                   Suporte via WhatsApp
                 </a>
               </div>
-
             </div>
           </div>
         </div>
+
+        {/* NOVA SESSÃO: PRODUTOS RELACIONADOS */}
+        {relatedProducts.length > 0 && (
+          <div className="mt-16 animate-fade-in-up pb-12">
+            <h2 className="text-2xl font-black text-white mb-6 flex items-center gap-2">
+              <span className="w-2 h-8 bg-[#00ff66] rounded-full inline-block"></span>
+              Você também pode gostar
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+              {relatedProducts.map(related => (
+                <Link href={`/produto/${related.id}`} key={related.id} className="bg-zinc-900/40 border border-zinc-800/80 rounded-2xl p-4 hover:border-[#00ff66]/50 transition-all group">
+                  <div className="relative h-48 w-full mb-4 bg-zinc-950/50 rounded-xl overflow-hidden flex items-center justify-center p-4">
+                    <Image 
+                      src={related.image} 
+                      alt={related.name} 
+                      fill 
+                      className="object-contain group-hover:scale-110 transition-transform duration-300 drop-shadow-lg" 
+                    />
+                  </div>
+                  <div>
+                    <p className="text-[#00ff66] text-xs font-bold uppercase tracking-wider">{related.brand}</p>
+                    <h3 className="text-white font-bold text-lg truncate mt-1 group-hover:text-gray-300 transition-colors">{related.name}</h3>
+                    <p className="text-zinc-400 text-sm mt-2 font-black">
+                      {related.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                    </p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
 
       </div>
     </div>
