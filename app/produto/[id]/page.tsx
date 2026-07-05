@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -22,6 +22,14 @@ interface ShippingResult {
   description: string;
 }
 
+interface Review {
+  id: number;
+  name: string;
+  rating: number;
+  comment: string;
+  date: string;
+}
+
 export default function ProductDetails() {
   const params = useParams();
   const [selectedSize, setSelectedSize] = useState<number | null>(null);
@@ -33,8 +41,30 @@ export default function ProductDetails() {
   const [shippingResult, setShippingResult] = useState<ShippingResult | null>(null);
   const [shippingError, setShippingError] = useState('');
 
+  // ESTADOS DE AVALIAÇÕES (REVIEWS)
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [reviewForm, setReviewForm] = useState({ name: '', comment: '', rating: 5 });
+
   const productId = Number(params.id);
-  const product = products.find((p) => p.id === productId);
+  
+  // Mescla os produtos estáticos com os customizados do Admin (caso existam)
+  const savedCustomProducts = typeof window !== 'undefined' ? localStorage.getItem('sneaker-custom-products') : null;
+  const customProducts = savedCustomProducts ? JSON.parse(savedCustomProducts) : [];
+  const allProducts = [...products, ...customProducts];
+  
+  const product = allProducts.find((p) => p.id === productId);
+
+  useEffect(() => {
+    // Carrega as avaliações específicas deste produto
+    const savedReviews = localStorage.getItem(`sneaker-reviews-${productId}`);
+    if (savedReviews) {
+      try {
+        setReviews(JSON.parse(savedReviews));
+      } catch (e) {
+        console.error("Erro ao carregar avaliações", e);
+      }
+    }
+  }, [productId]);
 
   if (!product) {
     return (
@@ -123,13 +153,35 @@ export default function ProductDetails() {
     }
   };
 
+  const handleSubmitReview = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!reviewForm.name.trim() || !reviewForm.comment.trim()) return;
+
+    const newReview: Review = {
+      id: Date.now(),
+      name: reviewForm.name,
+      rating: reviewForm.rating,
+      comment: reviewForm.comment,
+      date: new Date().toLocaleDateString('pt-BR')
+    };
+
+    const updatedReviews = [newReview, ...reviews];
+    setReviews(updatedReviews);
+    localStorage.setItem(`sneaker-reviews-${productId}`, JSON.stringify(updatedReviews));
+    setReviewForm({ name: '', comment: '', rating: 5 });
+  };
+
   const whatsappMessage = encodeURIComponent(`Olá! Gostaria de saber mais informações sobre o tênis ${product.brand} ${product.name}.`);
   const whatsappUrl = `https://wa.me/5500999999999?text=${whatsappMessage}`;
 
-  // PRODUTOS RELACIONADOS: Filtra por mesma marca ou categoria, exclui o atual e pega no máximo 3
-  const relatedProducts = products
+  const relatedProducts = allProducts
     .filter(p => (p.brand === product.brand || p.category === product.category) && p.id !== product.id)
     .slice(0, 3);
+
+  // Calcula a média das avaliações
+  const averageRating = reviews.length > 0 
+    ? (reviews.reduce((acc, rev) => acc + rev.rating, 0) / reviews.length).toFixed(1) 
+    : 'Novo';
 
   return (
     <div className="min-h-screen bg-black text-white p-4 md:p-8 font-sans selection:bg-[#00ff66] selection:text-black">
@@ -152,9 +204,17 @@ export default function ProductDetails() {
             {/* CONTEÚDO E ENTRADA DE DADOS */}
             <div className="md:w-1/2 p-8 md:p-12 flex flex-col justify-center gap-6">
               <div>
-                <span className="text-[#00ff66] font-black tracking-widest uppercase text-xs mb-3 bg-[#00ff66]/10 px-3 py-1 rounded-full w-fit shadow-[0_0_15px_rgba(0,255,102,0.1)] border border-[#00ff66]/20 inline-block">
-                  {product.brand} • {product.category}
-                </span>
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-[#00ff66] font-black tracking-widest uppercase text-xs bg-[#00ff66]/10 px-3 py-1 rounded-full shadow-[0_0_15px_rgba(0,255,102,0.1)] border border-[#00ff66]/20">
+                    {product.brand} • {product.category}
+                  </span>
+                  <div className="flex items-center gap-1 bg-zinc-800 px-2 py-1 rounded-lg">
+                    <span className="text-yellow-400 text-sm">★</span>
+                    <span className="text-xs font-bold">{averageRating}</span>
+                    <span className="text-xs text-zinc-500">({reviews.length})</span>
+                  </div>
+                </div>
+                
                 <h1 className="text-4xl md:text-5xl font-black text-white tracking-tight leading-none mb-2">
                   {product.name}
                 </h1>
@@ -246,7 +306,71 @@ export default function ProductDetails() {
           </div>
         </div>
 
-        {/* NOVA SESSÃO: PRODUTOS RELACIONADOS */}
+        {/* SESSÃO DE AVALIAÇÕES (NOVO) */}
+        <div className="mt-16 animate-fade-in-up">
+          <h2 className="text-2xl font-black text-white mb-6 flex items-center gap-2">
+            <span className="w-2 h-8 bg-[#00ff66] rounded-full inline-block"></span>
+            Avaliações do Produto
+          </h2>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {/* Formulário de Avaliação */}
+            <div className="md:col-span-1 bg-zinc-900/40 border border-zinc-800/80 rounded-2xl p-6 h-fit">
+              <h3 className="font-bold mb-4 text-zinc-200">Deixe sua avaliação</h3>
+              <form onSubmit={handleSubmitReview} className="space-y-4">
+                <div>
+                  <label className="text-xs font-bold text-zinc-400 uppercase">Seu Nome</label>
+                  <input required type="text" value={reviewForm.name} onChange={(e) => setReviewForm({...reviewForm, name: e.target.value})} className="w-full px-4 py-2 mt-1 bg-zinc-950/50 border border-zinc-800 rounded-xl text-white outline-none focus:border-[#00ff66] text-sm" placeholder="Como quer ser chamado?" />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-zinc-400 uppercase">Nota</label>
+                  <div className="flex gap-2 mt-1">
+                    {[1, 2, 3, 4, 5].map(star => (
+                      <button type="button" key={star} onClick={() => setReviewForm({...reviewForm, rating: star})} className={`text-2xl ${reviewForm.rating >= star ? 'text-yellow-400' : 'text-zinc-700'} hover:scale-110 transition-transform`}>
+                        ★
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-zinc-400 uppercase">Comentário</label>
+                  <textarea required value={reviewForm.comment} onChange={(e) => setReviewForm({...reviewForm, comment: e.target.value})} className="w-full px-4 py-2 mt-1 bg-zinc-950/50 border border-zinc-800 rounded-xl text-white outline-none focus:border-[#00ff66] text-sm resize-none h-24" placeholder="O que achou do tênis?" />
+                </div>
+                <button type="submit" className="w-full py-3 bg-zinc-800 hover:bg-[#00ff66] text-white hover:text-black font-black uppercase tracking-wider text-sm rounded-xl transition-all duration-300">
+                  Enviar Avaliação
+                </button>
+              </form>
+            </div>
+
+            {/* Lista de Avaliações */}
+            <div className="md:col-span-2 space-y-4">
+              {reviews.length === 0 ? (
+                <div className="bg-zinc-900/40 border border-zinc-800/80 rounded-2xl p-8 text-center flex flex-col items-center justify-center h-full min-h-[200px]">
+                  <p className="text-zinc-500">Nenhuma avaliação ainda. Seja o primeiro a avaliar este produto!</p>
+                </div>
+              ) : (
+                reviews.map(review => (
+                  <div key={review.id} className="bg-zinc-900/40 border border-zinc-800/80 rounded-2xl p-6">
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <p className="font-bold text-white">{review.name}</p>
+                        <p className="text-xs text-zinc-500">{review.date}</p>
+                      </div>
+                      <div className="flex text-yellow-400 text-sm">
+                        {Array.from({ length: 5 }).map((_, i) => (
+                          <span key={i} className={i < review.rating ? 'opacity-100' : 'opacity-20 text-zinc-600'}>★</span>
+                        ))}
+                      </div>
+                    </div>
+                    <p className="text-zinc-300 text-sm mt-3 leading-relaxed">"{review.comment}"</p>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* PRODUTOS RELACIONADOS */}
         {relatedProducts.length > 0 && (
           <div className="mt-16 animate-fade-in-up pb-12">
             <h2 className="text-2xl font-black text-white mb-6 flex items-center gap-2">
