@@ -35,6 +35,10 @@ export default function ProductDetails() {
   const [selectedSize, setSelectedSize] = useState<number | null>(null);
   const [isAdded, setIsAdded] = useState(false);
   
+  // ESTADOS DE NOVAS FUNCIONALIDADES
+  const [isSizeGuideOpen, setIsSizeGuideOpen] = useState(false);
+  const [shareFeedback, setShareFeedback] = useState('');
+
   // ESTADOS DO CÁLCULO DE FRETE
   const [cep, setCep] = useState('');
   const [loadingShipping, setLoadingShipping] = useState(false);
@@ -55,7 +59,6 @@ export default function ProductDetails() {
   const product = allProducts.find((p) => p.id === productId);
 
   useEffect(() => {
-    // Carrega as avaliações específicas deste produto
     const savedReviews = localStorage.getItem(`sneaker-reviews-${productId}`);
     if (savedReviews) {
       try {
@@ -104,7 +107,6 @@ export default function ProductDetails() {
 
   const handleCalculateShipping = async (e: React.FormEvent) => {
     e.preventDefault();
-    
     const cleanCep = cep.replace(/\D/g, '');
     if (cleanCep.length !== 8) {
       setShippingError('Insira um CEP válido com 8 dígitos.');
@@ -171,6 +173,27 @@ export default function ProductDetails() {
     setReviewForm({ name: '', comment: '', rating: 5 });
   };
 
+  // FUNÇÃO DE COMPARTILHAR
+  const handleShare = async () => {
+    const shareData = {
+      title: `Sneaker Store - ${product.name}`,
+      text: `Olha esse tênis incrível que encontrei: ${product.name}!`,
+      url: window.location.href,
+    };
+
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+      } catch (err) {
+        console.error("Erro ao compartilhar", err);
+      }
+    } else {
+      navigator.clipboard.writeText(window.location.href);
+      setShareFeedback('Link copiado!');
+      setTimeout(() => setShareFeedback(''), 3000);
+    }
+  };
+
   const whatsappMessage = encodeURIComponent(`Olá! Gostaria de saber mais informações sobre o tênis ${product.brand} ${product.name}.`);
   const whatsappUrl = `https://wa.me/5500999999999?text=${whatsappMessage}`;
 
@@ -178,30 +201,39 @@ export default function ProductDetails() {
     .filter(p => (p.brand === product.brand || p.category === product.category) && p.id !== product.id)
     .slice(0, 3);
 
-  // Calcula a média das avaliações
   const averageRating = reviews.length > 0 
     ? (reviews.reduce((acc, rev) => acc + rev.rating, 0) / reviews.length).toFixed(1) 
     : 'Novo';
 
   return (
-    <div className="min-h-screen bg-black text-white p-4 md:p-8 font-sans selection:bg-[#00ff66] selection:text-black">
+    <div className="min-h-screen bg-black text-white p-4 md:p-8 font-sans selection:bg-[#00ff66] selection:text-black relative">
       <div className="max-w-6xl mx-auto">
         
-        <Link href="/" className="inline-flex items-center gap-2 text-zinc-400 hover:text-[#00ff66] font-semibold mb-8 transition-all hover:drop-shadow-[0_0_8px_rgba(0,255,102,0.5)]">
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
-          Voltar para o catálogo
-        </Link>
+        <div className="flex justify-between items-center mb-8">
+          <Link href="/" className="inline-flex items-center gap-2 text-zinc-400 hover:text-[#00ff66] font-semibold transition-all hover:drop-shadow-[0_0_8px_rgba(0,255,102,0.5)]">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+            Voltar para o catálogo
+          </Link>
+
+          <button onClick={handleShare} className="text-zinc-400 hover:text-white flex items-center gap-2 text-sm font-bold transition-colors">
+            {shareFeedback || (
+              <>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"></path></svg>
+                Compartilhar
+              </>
+            )}
+          </button>
+        </div>
 
         <div className="bg-zinc-900/40 backdrop-blur-xl rounded-3xl shadow-[0_0_50px_rgba(0,0,0,0.8)] overflow-hidden border border-zinc-800/80 animate-fade-in-up">
           <div className="flex flex-col md:flex-row">
             
-            {/* IMAGEM DO SNEAKER */}
-            <div className="md:w-1/2 bg-gradient-to-b from-zinc-900/20 to-zinc-950/40 p-8 md:p-16 relative flex items-center justify-center min-h-[400px] border-b md:border-b-0 md:border-r border-zinc-800/50">
+            <div className="md:w-1/2 bg-gradient-to-b from-zinc-900/20 to-zinc-950/40 p-8 md:p-16 relative flex items-center justify-center min-h-[400px] border-b md:border-b-0 md:border-r border-zinc-800/50 group cursor-crosshair">
               <div className="absolute w-72 h-72 bg-[#00ff66]/5 rounded-full blur-[120px] pointer-events-none"></div>
-              <Image src={product.image} alt={product.name} fill priority className="object-contain p-8 hover:scale-105 transition-transform duration-500 ease-out" />
+              <Image src={product.image} alt={product.name} fill priority className="object-contain p-8 group-hover:scale-125 transition-transform duration-700 ease-out" />
+              <span className="absolute bottom-4 right-4 text-xs text-zinc-600 uppercase font-bold pointer-events-none">Passe o mouse para zoom</span>
             </div>
 
-            {/* CONTEÚDO E ENTRADA DE DADOS */}
             <div className="md:w-1/2 p-8 md:p-12 flex flex-col justify-center gap-6">
               <div>
                 <div className="flex items-center justify-between mb-3">
@@ -227,9 +259,13 @@ export default function ProductDetails() {
                 Este modelo exclusivo da {product.brand} combina conforto excepcional com um design de vanguarda urbana. A paleta de cores {product.color} confere a este sneaker uma presença marcante e futurista em qualquer cenário.
               </p>
 
-              {/* SELETOR DE TAMANHOS */}
               <div>
-                <span className="block font-bold text-zinc-300 text-xs uppercase tracking-wider mb-3">Selecione a numeração</span>
+                <div className="flex justify-between items-end mb-3">
+                  <span className="block font-bold text-zinc-300 text-xs uppercase tracking-wider">Selecione a numeração</span>
+                  <button onClick={() => setIsSizeGuideOpen(true)} className="text-xs text-zinc-500 hover:text-[#00ff66] underline font-medium transition-colors">
+                    Guia de Tamanhos
+                  </button>
+                </div>
                 <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
                   {AVAILABLE_SIZES.map((size) => (
                     <button
@@ -246,7 +282,6 @@ export default function ProductDetails() {
                 </div>
               </div>
 
-              {/* CÁLCULO DE FRETE */}
               <div className="p-4 rounded-2xl bg-zinc-950/60 border border-zinc-800/80">
                 <span className="block font-bold text-zinc-300 text-xs uppercase tracking-wider mb-3">Calcular Frete e Prazo</span>
                 <form onSubmit={handleCalculateShipping} className="flex gap-2">
@@ -280,7 +315,6 @@ export default function ProductDetails() {
                 )}
               </div>
 
-              {/* BOTÕES DE AÇÃO */}
               <div className="space-y-2 pt-2">
                 <button 
                   onClick={handleAddToCart} disabled={!selectedSize}
@@ -306,7 +340,40 @@ export default function ProductDetails() {
           </div>
         </div>
 
-        {/* SESSÃO DE AVALIAÇÕES (NOVO) */}
+        {/* MODAL GUIA DE TAMANHOS */}
+        {isSizeGuideOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsSizeGuideOpen(false)}></div>
+            <div className="bg-zinc-900 border border-zinc-800 w-full max-w-md rounded-3xl shadow-2xl p-6 text-left relative z-10 animate-fade-in-up">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-black text-white">Guia de Tamanhos</h3>
+                <button onClick={() => setIsSizeGuideOpen(false)} className="text-zinc-500 hover:text-white text-2xl font-bold">×</button>
+              </div>
+              <div className="overflow-x-auto rounded-xl border border-zinc-800">
+                <table className="w-full text-center text-sm">
+                  <thead className="bg-zinc-950 text-zinc-400 font-bold uppercase text-xs">
+                    <tr>
+                      <th className="p-3 border-b border-zinc-800">BR</th>
+                      <th className="p-3 border-b border-zinc-800">US</th>
+                      <th className="p-3 border-b border-zinc-800">EU</th>
+                      <th className="p-3 border-b border-zinc-800">CM</th>
+                    </tr>
+                  </thead>
+                  <tbody className="text-zinc-300">
+                    <tr className="hover:bg-zinc-800/50"><td className="p-3 border-b border-zinc-800">38</td><td className="p-3 border-b border-zinc-800">7</td><td className="p-3 border-b border-zinc-800">40</td><td className="p-3 border-b border-zinc-800">25.0</td></tr>
+                    <tr className="hover:bg-zinc-800/50"><td className="p-3 border-b border-zinc-800">39</td><td className="p-3 border-b border-zinc-800">7.5</td><td className="p-3 border-b border-zinc-800">41</td><td className="p-3 border-b border-zinc-800">25.5</td></tr>
+                    <tr className="hover:bg-zinc-800/50"><td className="p-3 border-b border-zinc-800">40</td><td className="p-3 border-b border-zinc-800">8.5</td><td className="p-3 border-b border-zinc-800">42</td><td className="p-3 border-b border-zinc-800">26.5</td></tr>
+                    <tr className="hover:bg-zinc-800/50"><td className="p-3 border-b border-zinc-800">41</td><td className="p-3 border-b border-zinc-800">9.5</td><td className="p-3 border-b border-zinc-800">43</td><td className="p-3 border-b border-zinc-800">27.5</td></tr>
+                    <tr className="hover:bg-zinc-800/50"><td className="p-3 border-b border-zinc-800">42</td><td className="p-3 border-b border-zinc-800">10</td><td className="p-3 border-b border-zinc-800">44</td><td className="p-3 border-b border-zinc-800">28.0</td></tr>
+                    <tr className="hover:bg-zinc-800/50"><td className="p-3 border-b border-zinc-800">43</td><td className="p-3 border-b border-zinc-800">11</td><td className="p-3 border-b border-zinc-800">45</td><td className="p-3 border-b border-zinc-800">29.0</td></tr>
+                    <tr className="hover:bg-zinc-800/50"><td className="p-3">44</td><td className="p-3">12</td><td className="p-3">46</td><td className="p-3">30.0</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="mt-16 animate-fade-in-up">
           <h2 className="text-2xl font-black text-white mb-6 flex items-center gap-2">
             <span className="w-2 h-8 bg-[#00ff66] rounded-full inline-block"></span>
@@ -314,7 +381,6 @@ export default function ProductDetails() {
           </h2>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {/* Formulário de Avaliação */}
             <div className="md:col-span-1 bg-zinc-900/40 border border-zinc-800/80 rounded-2xl p-6 h-fit">
               <h3 className="font-bold mb-4 text-zinc-200">Deixe sua avaliação</h3>
               <form onSubmit={handleSubmitReview} className="space-y-4">
@@ -342,7 +408,6 @@ export default function ProductDetails() {
               </form>
             </div>
 
-            {/* Lista de Avaliações */}
             <div className="md:col-span-2 space-y-4">
               {reviews.length === 0 ? (
                 <div className="bg-zinc-900/40 border border-zinc-800/80 rounded-2xl p-8 text-center flex flex-col items-center justify-center h-full min-h-[200px]">
@@ -370,7 +435,6 @@ export default function ProductDetails() {
           </div>
         </div>
 
-        {/* PRODUTOS RELACIONADOS */}
         {relatedProducts.length > 0 && (
           <div className="mt-16 animate-fade-in-up pb-12">
             <h2 className="text-2xl font-black text-white mb-6 flex items-center gap-2">
