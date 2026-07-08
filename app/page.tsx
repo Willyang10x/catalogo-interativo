@@ -105,7 +105,7 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [sortOrder, setSortOrder] = useState(''); // Estado para o novo filtro de ordenação
+  const [sortOrder, setSortOrder] = useState(''); 
   const [favorites, setFavorites] = useState<number[]>([]);
   const [isDarkMode, setIsDarkMode] = useState(false);
   
@@ -125,7 +125,13 @@ export default function Home() {
   const [discount, setDiscount] = useState(0); 
   const [promoMessage, setPromoMessage] = useState('');
 
-  // Carrega produtos customizados do Admin
+  // ESTADOS DO SISTEMA DE RASTREIO
+  const [isTrackingOpen, setIsTrackingOpen] = useState(false);
+  const [trackingForm, setTrackingForm] = useState({ id: '', email: '' });
+  const [trackedOrder, setTrackedOrder] = useState<any>(null);
+  const [trackingError, setTrackingError] = useState('');
+  const [lastOrderId, setLastOrderId] = useState<number | null>(null);
+
   const [allProducts, setAllProducts] = useState<Sneaker[]>([]);
 
   useEffect(() => {
@@ -148,14 +154,10 @@ export default function Home() {
   }, []);
 
   useEffect(() => { if (favorites.length >= 0) localStorage.setItem('sneaker-favorites', JSON.stringify(favorites)); }, [favorites]);
-  
   useEffect(() => { if (isCartLoaded) localStorage.setItem('sneaker-cart', JSON.stringify(cart)); }, [cart, isCartLoaded]);
-  
   useEffect(() => { const handler = setTimeout(() => setDebouncedQuery(searchQuery), 300); return () => clearTimeout(handler); }, [searchQuery]);
 
-  const scrollToProducts = () => {
-    document.getElementById('products-grid')?.scrollIntoView({ behavior: 'smooth' });
-  };
+  const scrollToProducts = () => { document.getElementById('products-grid')?.scrollIntoView({ behavior: 'smooth' }); };
 
   const toggleDarkMode = () => {
     setIsDarkMode((prev) => {
@@ -173,7 +175,6 @@ export default function Home() {
   const updateCartQuantity = (cartItemId: string, delta: number) => {
     setCart((prev) => prev.map((item) => item.cartItemId === cartItemId ? { ...item, quantity: Math.max(0, item.quantity + delta) } : item).filter((item) => item.quantity > 0));
   };
-
   const removeFromCart = (cartItemId: string) => { setCart((prev) => prev.filter((item) => item.cartItemId !== cartItemId)); };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -194,7 +195,6 @@ export default function Home() {
   const cartSubtotal = cart.reduce((total, item) => total + (item.price * item.quantity), 0);
   const discountValue = cartSubtotal * discount;
   const cartTotalPrice = cartSubtotal - discountValue;
-  
   const missingForFreeShipping = Math.max(0, FREE_SHIPPING_THRESHOLD - cartTotalPrice);
   const freeShippingProgress = Math.min(100, (cartTotalPrice / FREE_SHIPPING_THRESHOLD) * 100);
 
@@ -202,17 +202,11 @@ export default function Home() {
     e.preventDefault();
     const errors = { name: '', email: '', address: '' };
     let hasErrors = false;
-
-    if (!formData.name.trim()) { errors.name = 'Obrigatório.'; hasErrors = true; } 
-    else if (formData.name.trim().length < 3) { errors.name = 'Mín. 3 letras.'; hasErrors = true; }
-
+    if (!formData.name.trim()) { errors.name = 'Obrigatório.'; hasErrors = true; } else if (formData.name.trim().length < 3) { errors.name = 'Mín. 3 letras.'; hasErrors = true; }
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!formData.email.trim()) { errors.email = 'Obrigatório.'; hasErrors = true; } 
-    else if (!emailRegex.test(formData.email)) { errors.email = 'Inválido.'; hasErrors = true; }
-
+    if (!formData.email.trim()) { errors.email = 'Obrigatório.'; hasErrors = true; } else if (!emailRegex.test(formData.email)) { errors.email = 'Inválido.'; hasErrors = true; }
     if (deliveryMethod === 'delivery' && !formData.address.trim()) { errors.address = 'Obrigatório para entrega.'; hasErrors = true; }
     if (hasErrors) { setFormErrors(errors); return; }
-
     setIsCheckoutOpen(false);
     setIsPixOpen(true);
   };
@@ -220,8 +214,10 @@ export default function Home() {
   const handleConfirmOrder = () => {
     const savedOrders = localStorage.getItem('sneaker-orders');
     const currentOrders = savedOrders ? JSON.parse(savedOrders) : [];
+    const generatedId = Math.floor(1000 + Math.random() * 9000); // ID Aleatório de 4 dígitos
+    
     const newOrder = {
-      id: Math.floor(1000 + Math.random() * 9000),
+      id: generatedId,
       customerName: formData.name,
       customerEmail: formData.email,
       deliveryMethod: deliveryMethod === 'delivery' ? 'Entrega' : 'Retirada',
@@ -230,12 +226,13 @@ export default function Home() {
       totalItems: cartTotalItems,
       date: new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }),
       itemsSummary: cart.map(item => `${item.quantity}x ${item.name} (Tam ${item.size})`).join(', '),
-      status: 'Pendente' // Adicionado status para o painel admin
+      status: 'Pendente' 
     };
 
     currentOrders.unshift(newOrder);
     localStorage.setItem('sneaker-orders', JSON.stringify(currentOrders));
 
+    setLastOrderId(generatedId); // Salva o ID para mostrar na tela de sucesso
     setIsPixOpen(false);
     setIsSuccessOpen(true);
     setCart([]);
@@ -245,7 +242,30 @@ export default function Home() {
     setFormData({ name: '', email: '', address: '' });
   };
 
-  // Aplica filtros, busca e ORDENAÇÃO
+  // LÓGICA DE RASTREIO DA ENCOMENDA
+  const handleTrackOrder = (e: React.FormEvent) => {
+    e.preventDefault();
+    setTrackingError('');
+    const savedOrders = localStorage.getItem('sneaker-orders');
+    if (savedOrders) {
+      const orders = JSON.parse(savedOrders);
+      // Procura a encomenda que coincida o ID e o Email exato
+      const order = orders.find((o: any) => 
+        o.id.toString() === trackingForm.id.trim() && 
+        o.customerEmail.toLowerCase() === trackingForm.email.trim().toLowerCase()
+      );
+      
+      if (order) {
+        setTrackedOrder(order);
+      } else {
+        setTrackingError('Nenhuma encomenda encontrada com estes dados.');
+        setTrackedOrder(null);
+      }
+    } else {
+      setTrackingError('Sistema sem histórico de encomendas.');
+    }
+  };
+
   const filteredProducts = useMemo(() => {
     const filtered = allProducts.filter((sneaker) => {
       const matchesSearch = sneaker.name.toLowerCase().includes(debouncedQuery.toLowerCase());
@@ -276,7 +296,6 @@ export default function Home() {
           </div>
           
           <div className="flex flex-wrap md:flex-nowrap items-center gap-3 w-full md:w-auto">
-            {/* BUSCA */}
             <div className="relative flex-1 md:w-64">
               <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
                 <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
@@ -287,7 +306,12 @@ export default function Home() {
             {/* BOTÕES DE AÇÃO */}
             <div className="flex items-center gap-2">
               <button onClick={toggleDarkMode} className="p-2.5 bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center transition-colors">
-                {isDarkMode ? <svg className="w-5 h-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4.22 4.22a1 1 0 011.415 0l.708.708a1 1 0 01-1.414 1.414l-.708-.708a1 1 0 010-1.414zM18 10a1 1 0 01-1 1h-1a1 1 0 110-2h1a1 1 0 011 1zm-4.22 4.22a1 1 0 010 1.415l-.708.708a1 1 0 01-1.414-1.414l.708-.708a1 1 0 011.415 0zM10 16a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zm-4.22-4.22a1 1 0 01-1.415 0l-.708-.708a1 1 0 011.414-1.414l.708.708a1 1 0 010 1.414zM4 10a1 1 0 01-1 1H2a1 1 0 110-2h1a1 1 0 011 1zm4.22-4.22a1 1 0 010-1.415l-.708-.708a1 1 0 011.414 1.414l-.708.708a1 1 0 01-1.415 0zM10 5a5 5 0 100 10 5 5 0 000-10z" clipRule="evenodd" /></svg> : <svg className="w-5 h-5 text-gray-600" fill="currentColor" viewBox="0 0 20 20"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" /></svg>}
+                {isDarkMode ? <svg className="w-5 h-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4.22 4.22a1 1 0 011.415 0l.708.708a1 1 0 01-1.414 1.414l-.708-.708a1 1 0 010-1.414zM18 10a1 1 0 01-1 1h-1a1 1 0 110-2h1a1 1 0 011 1zm-4.22 4.22a1 1 0 010 1.415l-.708.708a1 1 0 01-1.414-1.414l.708-.708a1 1 0 011.415 0zM10 16a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zm-4.22-4.22a1 1 0 01-1.415 0l-.708-.708a1 1 0 011.414 1.414l-.708.708a1 1 0 01-1.415 0zM10 5a5 5 0 100 10 5 5 0 000-10z" clipRule="evenodd" /></svg> : <svg className="w-5 h-5 text-gray-600" fill="currentColor" viewBox="0 0 20 20"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" /></svg>}
+              </button>
+
+              {/* BOTÃO NOVO: RASTREAR ENCOMENDA */}
+              <button onClick={() => setIsTrackingOpen(true)} className="p-2.5 bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center transition-colors text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-[#00ff66]" title="Rastrear Encomenda">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.243-4.243a8 8 0 1111.314 0z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
               </button>
               
               <button onClick={() => setIsFavoritesOpen(true)} className="relative p-2.5 bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center transition-colors">
@@ -310,12 +334,11 @@ export default function Home() {
         </div>
       </nav>
 
-      {/* NOVA SESSÃO: HERO BANNER DESTAQUE */}
+      {/* HERO BANNER DESTAQUE */}
       <div className="max-w-7xl mx-auto px-4 md:px-8 py-6">
         <div className="relative w-full h-[300px] md:h-[400px] rounded-3xl overflow-hidden flex items-center bg-gradient-to-r from-zinc-900 to-zinc-800 animate-fade-in-up shadow-2xl">
           <div className="absolute inset-0 opacity-20 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] mix-blend-overlay"></div>
           <div className="absolute right-[-10%] md:right-[5%] top-1/2 -translate-y-1/2 w-[80%] md:w-[50%] h-full opacity-30 md:opacity-100 pointer-events-none">
-            {/* Imagem de destaque abstrata ou de um tenis hero */}
             <Image src={products[0]?.image || ''} alt="Hero Sneaker" fill className="object-contain scale-125 md:scale-150 translate-x-12 drop-shadow-[0_20px_50px_rgba(0,0,0,0.5)]" />
           </div>
           <div className="relative z-10 p-8 md:p-16 max-w-2xl text-left">
@@ -323,7 +346,7 @@ export default function Home() {
               Coleção Premium
             </span>
             <h2 className="text-4xl md:text-6xl font-black text-white leading-tight mb-4 drop-shadow-md">
-              Eleve seu <br/> <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#00ff66] to-blue-500">Streetwear.</span>
+              Eleve o seu <br/> <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#00ff66] to-blue-500">Streetwear.</span>
             </h2>
             <p className="text-zinc-300 text-sm md:text-base mb-8 max-w-md">
               Descubra os modelos mais exclusivos e limitados da temporada. Conforto extremo e design de vanguarda.
@@ -373,17 +396,14 @@ export default function Home() {
 
         {/* ÁREA PRINCIPAL DOS PRODUTOS */}
         <main className="w-full md:w-3/4">
-          
-          {/* BARRA DE ORDENAÇÃO E RESULTADOS */}
           <div className="flex flex-col sm:flex-row justify-between items-center mb-6 bg-white dark:bg-gray-800 p-3 px-4 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm">
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-2 sm:mb-0">
-              Exibindo <span className="font-bold text-gray-900 dark:text-white">{filteredProducts.length}</span> produtos
+              A exibir <span className="font-bold text-gray-900 dark:text-white">{filteredProducts.length}</span> produtos
             </p>
             <div className="flex items-center gap-2">
               <label className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase">Ordenar por:</label>
               <select 
-                value={sortOrder} 
-                onChange={(e) => setSortOrder(e.target.value)}
+                value={sortOrder} onChange={(e) => setSortOrder(e.target.value)}
                 className="bg-gray-100 dark:bg-gray-900 text-sm font-semibold text-gray-900 dark:text-white border-none rounded-lg px-3 py-1.5 outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-[#00ff66] cursor-pointer"
               >
                 <option value="">Relevância</option>
@@ -398,7 +418,7 @@ export default function Home() {
             <div className="text-center py-20 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700">
               <span className="text-6xl mb-4 block">🔍</span>
               <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Nenhum produto encontrado</h3>
-              <p className="text-gray-500 dark:text-gray-400">Tente ajustar os filtros ou a busca para encontrar o que procura.</p>
+              <p className="text-gray-500 dark:text-gray-400">Tente ajustar os filtros ou a pesquisa para encontrar o que procura.</p>
               <button onClick={() => { setSearchQuery(''); setSelectedBrands([]); setSelectedCategories([]); }} className="mt-4 px-4 py-2 bg-gray-100 dark:bg-gray-700 font-bold text-sm rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
                 Limpar Filtros
               </button>
@@ -413,7 +433,7 @@ export default function Home() {
         </main>
       </div>
 
-      {/* DRAWER DE FAVORITOS (Mantido idêntico) */}
+      {/* DRAWER DE FAVORITOS */}
       {isFavoritesOpen && (
         <div className="fixed inset-0 z-50 flex justify-end">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity" onClick={() => setIsFavoritesOpen(false)}></div>
@@ -426,7 +446,7 @@ export default function Home() {
               {favoriteProducts.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-center space-y-4">
                   <span className="text-6xl">💔</span>
-                  <p className="text-gray-500 dark:text-gray-400 text-lg">Você ainda não favoritou nenhum tênis.</p>
+                  <p className="text-gray-500 dark:text-gray-400 text-lg">Ainda não guardou nenhum artigo.</p>
                 </div>
               ) : (
                 favoriteProducts.map((item) => (
@@ -452,13 +472,13 @@ export default function Home() {
         </div>
       )}
 
-      {/* DRAWER DO CARRINHO (Mantido com melhorias de UI no dark mode) */}
+      {/* DRAWER DO CARRINHO */}
       {isCartOpen && (
         <div className="fixed inset-0 z-50 flex justify-end">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity" onClick={() => setIsCartOpen(false)}></div>
           <div className="relative w-full max-w-md bg-white dark:bg-gray-900 h-full shadow-2xl flex flex-col animate-fade-in-up">
             <div className="p-6 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">🛒 Meu Carrinho</h2>
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">🛒 O Meu Carrinho</h2>
               <button onClick={() => setIsCartOpen(false)} className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 text-3xl">×</button>
             </div>
 
@@ -468,8 +488,8 @@ export default function Home() {
                   <div className="flex justify-between items-center mb-2">
                     <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
                       {missingForFreeShipping > 0 
-                        ? `Faltam ${missingForFreeShipping.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} para Frete Grátis!` 
-                        : "🎉 Você ganhou Frete Grátis!"}
+                        ? `Faltam ${missingForFreeShipping.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} para Portes Grátis!` 
+                        : "🎉 Ganhou Portes Grátis!"}
                     </span>
                   </div>
                   <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
@@ -483,8 +503,8 @@ export default function Home() {
               {cart.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-center space-y-4">
                   <span className="text-6xl">🛍️</span>
-                  <p className="text-gray-500 dark:text-gray-400 text-lg">Seu carrinho está vazio.</p>
-                  <button onClick={() => setIsCartOpen(false)} className="px-6 py-2 bg-blue-50 dark:bg-gray-800 text-blue-600 dark:text-white font-bold rounded-lg border border-transparent dark:border-gray-700">Continuar comprando</button>
+                  <p className="text-gray-500 dark:text-gray-400 text-lg">O seu carrinho está vazio.</p>
+                  <button onClick={() => setIsCartOpen(false)} className="px-6 py-2 bg-blue-50 dark:bg-gray-800 text-blue-600 dark:text-white font-bold rounded-lg border border-transparent dark:border-gray-700">Continuar a comprar</button>
                 </div>
               ) : (
                 cart.map((item) => (
@@ -515,7 +535,7 @@ export default function Home() {
               <div className="p-6 border-t border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900">
                 <div className="flex gap-2 mb-4">
                   <input
-                    type="text" placeholder="Cupom (ex: PROMO10)" value={promoCode} onChange={(e) => setPromoCode(e.target.value)}
+                    type="text" placeholder="Cupão (ex: PROMO10)" value={promoCode} onChange={(e) => setPromoCode(e.target.value)}
                     className="flex-1 px-3 py-2 border rounded-lg bg-gray-50 dark:bg-gray-800 text-sm dark:text-white border-gray-200 dark:border-gray-700 outline-none focus:border-blue-500 dark:focus:border-[#00ff66] uppercase placeholder:normal-case"
                   />
                   <button onClick={handleApplyPromo} className="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 font-bold rounded-lg text-sm transition-colors text-gray-800 dark:text-white">
@@ -550,24 +570,95 @@ export default function Home() {
         </div>
       )}
 
-      {/* MODAL CHECKOUT E PIX OMITIDOS PARA BREVIDADE NESTA VISUALIZAÇÃO (ELES CONTINUAM FUNCIONANDO IGUAL) */}
-      {/* ... Código dos modais isCheckoutOpen, isPixOpen e isSuccessOpen continuam exatamente iguais à versão anterior ... */}
-      
+      {/* NOVO MODAL: RASTREIO DE ENCOMENDAS */}
+      {isTrackingOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => {setIsTrackingOpen(false); setTrackedOrder(null)}}></div>
+          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 w-full max-w-md rounded-3xl shadow-2xl p-6 md:p-8 text-left relative z-10 animate-fade-in-up">
+            <button onClick={() => {setIsTrackingOpen(false); setTrackedOrder(null)}} className="absolute top-4 right-4 text-gray-400 hover:text-gray-900 dark:hover:text-white text-2xl font-bold">×</button>
+            <h3 className="text-2xl font-black text-gray-900 dark:text-white mb-2">📍 Rastrear Encomenda</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Consulte o estado atual da sua compra introduzindo os dados abaixo.</p>
+            
+            {!trackedOrder ? (
+              <form onSubmit={handleTrackOrder} className="space-y-4">
+                <div>
+                  <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Número da Encomenda (ID)</label>
+                  <input required type="text" value={trackingForm.id} onChange={(e) => setTrackingForm({...trackingForm, id: e.target.value})} className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-800 rounded-xl text-gray-900 dark:text-white outline-none focus:border-blue-500 dark:focus:border-[#00ff66] text-sm mt-1" placeholder="Ex: 4829" />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">E-mail de Registo</label>
+                  <input required type="email" value={trackingForm.email} onChange={(e) => setTrackingForm({...trackingForm, email: e.target.value})} className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-800 rounded-xl text-gray-900 dark:text-white outline-none focus:border-blue-500 dark:focus:border-[#00ff66] text-sm mt-1" placeholder="o.seu@email.com" />
+                </div>
+                
+                {trackingError && <p className="text-red-500 text-xs font-semibold">⚠️ {trackingError}</p>}
+
+                <button type="submit" className="w-full py-3.5 bg-blue-600 dark:bg-[#00ff66] text-white dark:text-black font-black uppercase tracking-wider rounded-xl hover:bg-blue-700 dark:hover:bg-[#00cc52] transition-colors text-sm mt-2">
+                  Procurar
+                </button>
+              </form>
+            ) : (
+              <div className="animate-fade-in-up">
+                <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4 border border-gray-200 dark:border-gray-700 mb-6">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 uppercase font-bold">Encomenda #{trackedOrder.id}</p>
+                  <h4 className="text-lg font-black text-gray-900 dark:text-white">{trackedOrder.customerName}</h4>
+                  <p className="text-sm text-gray-600 dark:text-gray-300 mt-2 line-clamp-2">{trackedOrder.itemsSummary}</p>
+                </div>
+
+                {/* TIMELINE VISUAL DE ESTADO */}
+                <div className="relative border-l-2 border-gray-200 dark:border-gray-700 ml-3 space-y-8 py-2">
+                  
+                  {/* Passo 1: Recebido / Pendente */}
+                  <div className="relative pl-6">
+                    <div className={`absolute -left-[9px] top-1 w-4 h-4 rounded-full border-4 ${trackedOrder.status ? 'bg-blue-600 dark:bg-[#00ff66] border-blue-100 dark:border-[#00ff66]/30' : 'bg-gray-300 dark:bg-gray-600 border-white dark:border-gray-900'}`}></div>
+                    <h5 className={`font-bold text-sm ${trackedOrder.status ? 'text-gray-900 dark:text-white' : 'text-gray-400'}`}>Encomenda Recebida</h5>
+                    <p className="text-xs text-gray-500">{trackedOrder.date}</p>
+                  </div>
+
+                  {/* Passo 2: Pago */}
+                  <div className="relative pl-6">
+                    <div className={`absolute -left-[9px] top-1 w-4 h-4 rounded-full border-4 ${['Pago', 'Enviado'].includes(trackedOrder.status) ? 'bg-blue-600 dark:bg-[#00ff66] border-blue-100 dark:border-[#00ff66]/30' : 'bg-gray-300 dark:bg-gray-600 border-white dark:border-gray-900'}`}></div>
+                    <h5 className={`font-bold text-sm ${['Pago', 'Enviado'].includes(trackedOrder.status) ? 'text-gray-900 dark:text-white' : 'text-gray-400'}`}>Pagamento Aprovado</h5>
+                    <p className="text-xs text-gray-500">
+                      {['Pago', 'Enviado'].includes(trackedOrder.status) ? 'Transação via PIX confirmada.' : 'A aguardar confirmação...'}
+                    </p>
+                  </div>
+
+                  {/* Passo 3: Enviado */}
+                  <div className="relative pl-6">
+                    <div className={`absolute -left-[9px] top-1 w-4 h-4 rounded-full border-4 ${trackedOrder.status === 'Enviado' ? 'bg-blue-600 dark:bg-[#00ff66] border-blue-100 dark:border-[#00ff66]/30 animate-pulse' : 'bg-gray-300 dark:bg-gray-600 border-white dark:border-gray-900'}`}></div>
+                    <h5 className={`font-bold text-sm ${trackedOrder.status === 'Enviado' ? 'text-gray-900 dark:text-white' : 'text-gray-400'}`}>Em Trânsito</h5>
+                    <p className="text-xs text-gray-500">
+                      {trackedOrder.status === 'Enviado' ? `A caminho para: ${trackedOrder.address}` : 'Preparação e embalamento.'}
+                    </p>
+                  </div>
+
+                </div>
+
+                <button onClick={() => setTrackedOrder(null)} className="w-full mt-8 py-3 bg-gray-200 dark:bg-gray-800 hover:bg-gray-300 dark:hover:bg-gray-700 text-gray-900 dark:text-white font-bold rounded-xl transition-colors text-sm">
+                  Consultar outra encomenda
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* MODAL CHECKOUT */}
       {isCheckoutOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setIsCheckoutOpen(false)}></div>
           <div className="bg-white dark:bg-gray-800 w-full max-w-md rounded-2xl shadow-2xl p-6 relative z-10 animate-fade-in-up max-h-[90vh] overflow-y-auto">
             <button onClick={() => setIsCheckoutOpen(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl font-bold">×</button>
-            <h2 className="text-2xl font-extrabold text-gray-900 dark:text-white mb-6">📝 Seus Dados</h2>
+            <h2 className="text-2xl font-extrabold text-gray-900 dark:text-white mb-6">📝 Os Seus Dados</h2>
             
             <div className="flex bg-gray-100 dark:bg-gray-900 rounded-xl p-1 mb-6 border border-gray-200 dark:border-gray-700/50">
               <button type="button" onClick={() => setDeliveryMethod('delivery')} className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all ${deliveryMethod === 'delivery' ? 'bg-white dark:bg-gray-800 shadow-sm text-blue-600 dark:text-[#00ff66]' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}>🚚 Entrega</button>
-              <button type="button" onClick={() => setDeliveryMethod('pickup')} className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all ${deliveryMethod === 'pickup' ? 'bg-white dark:bg-gray-800 shadow-sm text-blue-600 dark:text-[#00ff66]' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}>🏪 Retirar na Loja</button>
+              <button type="button" onClick={() => setDeliveryMethod('pickup')} className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all ${deliveryMethod === 'pickup' ? 'bg-white dark:bg-gray-800 shadow-sm text-blue-600 dark:text-[#00ff66]' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}>🏪 Levantar na Loja</button>
             </div>
 
             <form onSubmit={handleCheckoutSubmit} className="space-y-4">
               <div>
-                <input type="text" name="name" value={formData.name} onChange={handleInputChange} className="w-full px-4 py-2.5 rounded-xl border bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-[#00ff66] dark:border-gray-700" placeholder="Seu nome completo" />
+                <input type="text" name="name" value={formData.name} onChange={handleInputChange} className="w-full px-4 py-2.5 rounded-xl border bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-[#00ff66] dark:border-gray-700" placeholder="O seu nome completo" />
                 {formErrors.name && <p className="text-red-500 text-xs mt-1 font-semibold">{formErrors.name}</p>}
               </div>
               <div>
@@ -577,7 +668,7 @@ export default function Home() {
               
               {deliveryMethod === 'delivery' ? (
                 <div>
-                  <input type="text" name="address" value={formData.address} onChange={handleInputChange} className="w-full px-4 py-2.5 rounded-xl border bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-[#00ff66] dark:border-gray-700" placeholder="Endereço completo para entrega" />
+                  <input type="text" name="address" value={formData.address} onChange={handleInputChange} className="w-full px-4 py-2.5 rounded-xl border bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-[#00ff66] dark:border-gray-700" placeholder="Morada completa para entrega" />
                   {formErrors.address && <p className="text-red-500 text-xs mt-1 font-semibold">{formErrors.address}</p>}
                 </div>
               ) : (
@@ -594,13 +685,14 @@ export default function Home() {
         </div>
       )}
 
+      {/* MODAL PIX */}
       {isPixOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setIsPixOpen(false)}></div>
           <div className="bg-white dark:bg-gray-800 w-full max-w-sm rounded-2xl shadow-2xl p-6 text-center relative z-10 animate-fade-in-up">
             <button onClick={() => setIsPixOpen(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-xl font-bold">×</button>
             <h3 className="text-xl font-extrabold text-gray-900 dark:text-white mb-2">Pagamento via PIX</h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Escaneie o QR Code abaixo no app do seu banco para finalizar a compra.</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Faça o scan do código QR abaixo na aplicação do seu banco para finalizar a compra.</p>
             
             <div className="w-48 h-48 mx-auto bg-white p-2 rounded-xl shadow-sm border border-gray-200 mb-6 flex items-center justify-center">
                <svg viewBox="0 0 100 100" className="w-full h-full text-black">
@@ -638,14 +730,21 @@ export default function Home() {
         </div>
       )}
 
+      {/* MODAL SUCESSO - COM O ID PARA RASTREIO */}
       {isSuccessOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setIsSuccessOpen(false)}></div>
           <div className="bg-white dark:bg-gray-800 w-full max-w-sm rounded-2xl shadow-2xl p-8 text-center relative z-10 animate-fade-in-up">
             <div className="w-16 h-16 bg-green-100 dark:bg-[#00ff66]/20 text-green-600 dark:text-[#00ff66] rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">✓</div>
-            <h3 className="text-2xl font-extrabold text-gray-900 dark:text-white mb-2">Pedido Confirmado!</h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Seu pedido foi computado com sucesso no sistema da loja.</p>
-            <button onClick={() => setIsSuccessOpen(false)} className="w-full py-3 bg-gray-900 dark:bg-[#00ff66] text-white dark:text-black font-black uppercase text-sm rounded-xl">Ótimo, obrigado!</button>
+            <h3 className="text-2xl font-extrabold text-gray-900 dark:text-white mb-2">Compra Efetuada!</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">A sua encomenda foi confirmada no nosso sistema.</p>
+            
+            <div className="bg-gray-100 dark:bg-gray-900 rounded-lg p-3 my-4 border border-gray-200 dark:border-gray-700">
+              <span className="block text-xs text-gray-500 uppercase font-bold mb-1">O seu ID de Rastreio</span>
+              <span className="text-xl font-black text-gray-900 dark:text-[#00ff66]">#{lastOrderId}</span>
+            </div>
+
+            <button onClick={() => setIsSuccessOpen(false)} className="w-full py-3 bg-gray-900 dark:bg-[#00ff66] text-white dark:text-black font-black uppercase text-sm rounded-xl">Excelente, obrigado!</button>
           </div>
         </div>
       )}
