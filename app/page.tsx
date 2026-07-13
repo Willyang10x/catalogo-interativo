@@ -111,19 +111,27 @@ export default function Home() {
   
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isCartLoaded, setIsCartLoaded] = useState(false);
+  
+  // ESTADOS DOS MODAIS/DRAWERS
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isFavoritesOpen, setIsFavoritesOpen] = useState(false);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [isPixOpen, setIsPixOpen] = useState(false); 
   const [isSuccessOpen, setIsSuccessOpen] = useState(false);
-  const [deliveryMethod, setDeliveryMethod] = useState<'delivery' | 'pickup'>('delivery');
   
+  const [deliveryMethod, setDeliveryMethod] = useState<'delivery' | 'pickup'>('delivery');
   const [formData, setFormData] = useState({ name: '', email: '', address: '' });
   const [formErrors, setFormErrors] = useState({ name: '', email: '', address: '' });
 
   const [promoCode, setPromoCode] = useState('');
   const [discount, setDiscount] = useState(0); 
   const [promoMessage, setPromoMessage] = useState('');
+
+  // ESTADO DO TOAST NOTIFICATION GLOBAL
+  const [toast, setToast] = useState<{show: boolean, message: string, type: 'success'|'info'}>({ show: false, message: '', type: 'success' });
+  
+  // ESTADO DA PESQUISA PREDITIVA
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
 
   // ESTADOS DO SISTEMA DE RASTREIO
   const [isTrackingOpen, setIsTrackingOpen] = useState(false);
@@ -135,6 +143,7 @@ export default function Home() {
   const [allProducts, setAllProducts] = useState<Sneaker[]>([]);
 
   useEffect(() => {
+    // Carrega produtos personalizados do Admin
     const savedCustomProducts = localStorage.getItem('sneaker-custom-products');
     const customProducts = savedCustomProducts ? JSON.parse(savedCustomProducts) : [];
     setAllProducts([...products, ...customProducts]);
@@ -159,6 +168,11 @@ export default function Home() {
 
   const scrollToProducts = () => { document.getElementById('products-grid')?.scrollIntoView({ behavior: 'smooth' }); };
 
+  const showToast = (message: string, type: 'success' | 'info' = 'success') => {
+    setToast({ show: true, message, type });
+    setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3000);
+  };
+
   const toggleDarkMode = () => {
     setIsDarkMode((prev) => {
       const newMode = !prev;
@@ -168,14 +182,28 @@ export default function Home() {
     });
   };
 
-  const toggleFavorite = (id: number) => { setFavorites((prev) => prev.includes(id) ? prev.filter((favId) => favId !== id) : [...prev, id]); };
+  const toggleFavorite = (id: number) => { 
+    setFavorites((prev) => {
+      if (prev.includes(id)) {
+        showToast('Removido dos favoritos', 'info');
+        return prev.filter((favId) => favId !== id);
+      } else {
+        showToast('Adicionado aos favoritos ❤️', 'success');
+        return [...prev, id];
+      }
+    }); 
+  };
+
   const toggleBrand = (brand: string) => { setSelectedBrands((prev) => prev.includes(brand) ? prev.filter((b) => b !== brand) : [...prev, brand]); };
   const toggleCategory = (category: string) => { setSelectedCategories((prev) => prev.includes(category) ? prev.filter((c) => c !== category) : [...prev, category]); };
 
   const updateCartQuantity = (cartItemId: string, delta: number) => {
     setCart((prev) => prev.map((item) => item.cartItemId === cartItemId ? { ...item, quantity: Math.max(0, item.quantity + delta) } : item).filter((item) => item.quantity > 0));
   };
-  const removeFromCart = (cartItemId: string) => { setCart((prev) => prev.filter((item) => item.cartItemId !== cartItemId)); };
+  const removeFromCart = (cartItemId: string) => { 
+    setCart((prev) => prev.filter((item) => item.cartItemId !== cartItemId)); 
+    showToast('Artigo removido do carrinho', 'info');
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -185,10 +213,10 @@ export default function Home() {
 
   const handleApplyPromo = () => {
     const code = promoCode.trim().toUpperCase();
-    if (code === 'PROMO10') { setDiscount(0.10); setPromoMessage('Cupom de 10% aplicado!'); } 
-    else if (code === 'SNEAKER20') { setDiscount(0.20); setPromoMessage('Cupom especial de 20% aplicado!'); } 
+    if (code === 'PROMO10') { setDiscount(0.10); setPromoMessage('Cupão de 10% aplicado!'); } 
+    else if (code === 'SNEAKER20') { setDiscount(0.20); setPromoMessage('Cupão especial de 20% aplicado!'); } 
     else if (code === '') { setDiscount(0); setPromoMessage(''); } 
-    else { setDiscount(0); setPromoMessage('Cupom inválido ou expirado.'); }
+    else { setDiscount(0); setPromoMessage('Cupão inválido ou expirado.'); }
   };
 
   const cartTotalItems = cart.reduce((total, item) => total + item.quantity, 0);
@@ -214,17 +242,17 @@ export default function Home() {
   const handleConfirmOrder = () => {
     const savedOrders = localStorage.getItem('sneaker-orders');
     const currentOrders = savedOrders ? JSON.parse(savedOrders) : [];
-    const generatedId = Math.floor(1000 + Math.random() * 9000); // ID Aleatório de 4 dígitos
+    const generatedId = Math.floor(1000 + Math.random() * 9000); 
     
     const newOrder = {
       id: generatedId,
       customerName: formData.name,
       customerEmail: formData.email,
-      deliveryMethod: deliveryMethod === 'delivery' ? 'Entrega' : 'Retirada',
-      address: deliveryMethod === 'delivery' ? formData.address : 'Flagship Paulista',
+      deliveryMethod: deliveryMethod === 'delivery' ? 'Entrega' : 'Recolha',
+      address: deliveryMethod === 'delivery' ? formData.address : 'Loja Oficial - Centro',
       totalPrice: cartTotalPrice,
       totalItems: cartTotalItems,
-      date: new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }),
+      date: new Date().toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }),
       itemsSummary: cart.map(item => `${item.quantity}x ${item.name} (Tam ${item.size})`).join(', '),
       status: 'Pendente' 
     };
@@ -232,7 +260,7 @@ export default function Home() {
     currentOrders.unshift(newOrder);
     localStorage.setItem('sneaker-orders', JSON.stringify(currentOrders));
 
-    setLastOrderId(generatedId); // Salva o ID para mostrar na tela de sucesso
+    setLastOrderId(generatedId);
     setIsPixOpen(false);
     setIsSuccessOpen(true);
     setCart([]);
@@ -242,14 +270,12 @@ export default function Home() {
     setFormData({ name: '', email: '', address: '' });
   };
 
-  // LÓGICA DE RASTREIO DA ENCOMENDA
   const handleTrackOrder = (e: React.FormEvent) => {
     e.preventDefault();
     setTrackingError('');
     const savedOrders = localStorage.getItem('sneaker-orders');
     if (savedOrders) {
       const orders = JSON.parse(savedOrders);
-      // Procura a encomenda que coincida o ID e o Email exato
       const order = orders.find((o: any) => 
         o.id.toString() === trackingForm.id.trim() && 
         o.customerEmail.toLowerCase() === trackingForm.email.trim().toLowerCase()
@@ -266,6 +292,15 @@ export default function Home() {
     }
   };
 
+  // PESQUISA PREDITIVA
+  const autocompleteResults = useMemo(() => {
+    if (searchQuery.trim().length === 0) return [];
+    return allProducts
+      .filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()) || p.brand.toLowerCase().includes(searchQuery.toLowerCase()))
+      .slice(0, 4);
+  }, [searchQuery, allProducts]);
+
+  // FILTRAGEM E ORDENAÇÃO PRINCIPAL
   const filteredProducts = useMemo(() => {
     const filtered = allProducts.filter((sneaker) => {
       const matchesSearch = sneaker.name.toLowerCase().includes(debouncedQuery.toLowerCase());
@@ -287,7 +322,15 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-950 font-sans relative transition-colors duration-300">
       
-      {/* HEADER NAVBAR */}
+      {/* TOAST NOTIFICATION GLOBAL */}
+      <div className={`fixed top-20 right-4 md:bottom-6 md:top-auto md:right-6 z-[100] transition-all duration-500 transform ${toast.show ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0 pointer-events-none'}`}>
+        <div className="bg-white/90 dark:bg-zinc-900/90 backdrop-blur-xl border border-gray-200 dark:border-zinc-700/50 shadow-2xl rounded-2xl px-6 py-4 flex items-center gap-3">
+          <span className="text-2xl">{toast.type === 'success' ? '✅' : 'ℹ️'}</span>
+          <p className="text-sm font-bold text-gray-900 dark:text-white">{toast.message}</p>
+        </div>
+      </div>
+
+      {/* HEADER / NAVBAR */}
       <nav className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-800 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 md:px-8 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
@@ -295,21 +338,55 @@ export default function Home() {
             <Link href="/admin" className="text-[10px] uppercase bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 font-bold px-2 py-1 rounded hover:text-blue-500 transition-colors">Admin</Link>
           </div>
           
-          <div className="flex flex-wrap md:flex-nowrap items-center gap-3 w-full md:w-auto">
-            <div className="relative flex-1 md:w-64">
+          <div className="flex flex-wrap md:flex-nowrap items-center gap-3 w-full md:w-auto relative">
+            
+            {/* BUSCA PREDITIVA COM AUTOCOMPLETE */}
+            <div className="relative flex-1 md:w-80">
               <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
                 <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
               </div>
-              <input type="text" placeholder="Pesquisar..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-9 pr-4 py-2 bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 rounded-lg border border-transparent focus:border-gray-300 dark:focus:border-gray-700 outline-none text-sm transition-all" />
+              <input 
+                type="text" placeholder="Pesquisar..." value={searchQuery} 
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onFocus={() => setIsSearchFocused(true)}
+                onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)}
+                className="w-full pl-9 pr-4 py-2.5 bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 rounded-xl border border-transparent focus:border-blue-500 dark:focus:border-[#00ff66] outline-none text-sm transition-all" 
+              />
+              
+              {/* DROPDOWN DO AUTOCOMPLETE */}
+              {isSearchFocused && searchQuery.length > 0 && (
+                <div className="absolute top-full left-0 right-0 mt-2 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-2xl border border-gray-200 dark:border-zinc-700/50 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] overflow-hidden z-50 animate-fade-in-up">
+                  {autocompleteResults.length > 0 ? (
+                    <div className="p-2">
+                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider px-3 mb-2 block">Resultados rápidos</span>
+                      {autocompleteResults.map(res => (
+                        <Link href={`/produto/${res.id}`} key={res.id} className="flex items-center gap-3 p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors">
+                          <div className="w-12 h-12 relative bg-gray-100 dark:bg-zinc-950 rounded-lg overflow-hidden flex-shrink-0">
+                            <Image src={res.image} alt={res.name} fill className="object-contain p-1" />
+                          </div>
+                          <div>
+                            <p className="text-xs font-bold text-blue-600 dark:text-[#00ff66] uppercase">{res.brand}</p>
+                            <p className="text-sm font-bold text-gray-900 dark:text-white truncate">{res.name}</p>
+                            <p className="text-xs text-gray-500">{res.price.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })}</p>
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-6 text-center text-gray-500 text-sm">
+                      Nenhum modelo encontrado para "{searchQuery}"
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
-            {/* BOTÕES DE AÇÃO */}
+            {/* ÍCONES DO HEADER */}
             <div className="flex items-center gap-2">
               <button onClick={toggleDarkMode} className="p-2.5 bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center transition-colors">
                 {isDarkMode ? <svg className="w-5 h-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4.22 4.22a1 1 0 011.415 0l.708.708a1 1 0 01-1.414 1.414l-.708-.708a1 1 0 010-1.414zM18 10a1 1 0 01-1 1h-1a1 1 0 110-2h1a1 1 0 011 1zm-4.22 4.22a1 1 0 010 1.415l-.708.708a1 1 0 01-1.414-1.414l.708-.708a1 1 0 011.415 0zM10 16a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zm-4.22-4.22a1 1 0 01-1.415 0l-.708-.708a1 1 0 011.414 1.414l-.708.708a1 1 0 01-1.415 0zM10 5a5 5 0 100 10 5 5 0 000-10z" clipRule="evenodd" /></svg> : <svg className="w-5 h-5 text-gray-600" fill="currentColor" viewBox="0 0 20 20"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" /></svg>}
               </button>
 
-              {/* BOTÃO NOVO: RASTREAR ENCOMENDA */}
               <button onClick={() => setIsTrackingOpen(true)} className="p-2.5 bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center transition-colors text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-[#00ff66]" title="Rastrear Encomenda">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.243-4.243a8 8 0 1111.314 0z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
               </button>
@@ -433,13 +510,74 @@ export default function Home() {
         </main>
       </div>
 
+      {/* MODAL: RASTREIO DE ENCOMENDAS */}
+      {isTrackingOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => {setIsTrackingOpen(false); setTrackedOrder(null)}}></div>
+          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 w-full max-w-md rounded-3xl shadow-2xl p-6 md:p-8 text-left relative z-10 animate-fade-in-up">
+            <button onClick={() => {setIsTrackingOpen(false); setTrackedOrder(null)}} className="absolute top-4 right-4 text-gray-400 hover:text-gray-900 dark:hover:text-white text-2xl font-bold">×</button>
+            <h3 className="text-2xl font-black text-gray-900 dark:text-white mb-2">📍 Rastrear Encomenda</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Consulte o estado atual da sua compra introduzindo os dados abaixo.</p>
+            
+            {!trackedOrder ? (
+              <form onSubmit={handleTrackOrder} className="space-y-4">
+                <div>
+                  <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Número da Encomenda (ID)</label>
+                  <input required type="text" value={trackingForm.id} onChange={(e) => setTrackingForm({...trackingForm, id: e.target.value})} className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-800 rounded-xl text-gray-900 dark:text-white outline-none focus:border-blue-500 dark:focus:border-[#00ff66] text-sm mt-1" placeholder="Ex: 4829" />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">E-mail de Registo</label>
+                  <input required type="email" value={trackingForm.email} onChange={(e) => setTrackingForm({...trackingForm, email: e.target.value})} className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-800 rounded-xl text-gray-900 dark:text-white outline-none focus:border-blue-500 dark:focus:border-[#00ff66] text-sm mt-1" placeholder="o.seu@email.com" />
+                </div>
+                
+                {trackingError && <p className="text-red-500 text-xs font-semibold">⚠️ {trackingError}</p>}
+
+                <button type="submit" className="w-full py-3.5 bg-blue-600 dark:bg-[#00ff66] text-white dark:text-black font-black uppercase tracking-wider rounded-xl hover:bg-blue-700 dark:hover:bg-[#00cc52] transition-colors text-sm mt-2 cursor-pointer">
+                  Procurar
+                </button>
+              </form>
+            ) : (
+              <div className="animate-fade-in-up">
+                <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4 border border-gray-200 dark:border-gray-700 mb-6">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 uppercase font-bold">Encomenda #{trackedOrder.id}</p>
+                  <h4 className="text-lg font-black text-gray-900 dark:text-white">{trackedOrder.customerName}</h4>
+                  <p className="text-sm text-gray-600 dark:text-gray-300 mt-2 line-clamp-2">{trackedOrder.itemsSummary}</p>
+                </div>
+
+                <div className="relative border-l-2 border-gray-200 dark:border-gray-700 ml-3 space-y-8 py-2">
+                  <div className="relative pl-6">
+                    <div className={`absolute -left-[9px] top-1 w-4 h-4 rounded-full border-4 ${trackedOrder.status ? 'bg-blue-600 dark:bg-[#00ff66] border-blue-100 dark:border-[#00ff66]/30' : 'bg-gray-300 dark:bg-gray-600 border-white dark:border-gray-900'}`}></div>
+                    <h5 className={`font-bold text-sm ${trackedOrder.status ? 'text-gray-900 dark:text-white' : 'text-gray-400'}`}>Encomenda Recebida</h5>
+                    <p className="text-xs text-gray-500">{trackedOrder.date}</p>
+                  </div>
+                  <div className="relative pl-6">
+                    <div className={`absolute -left-[9px] top-1 w-4 h-4 rounded-full border-4 ${['Pago', 'Enviado'].includes(trackedOrder.status) ? 'bg-blue-600 dark:bg-[#00ff66] border-blue-100 dark:border-[#00ff66]/30' : 'bg-gray-300 dark:bg-gray-600 border-white dark:border-gray-900'}`}></div>
+                    <h5 className={`font-bold text-sm ${['Pago', 'Enviado'].includes(trackedOrder.status) ? 'text-gray-900 dark:text-white' : 'text-gray-400'}`}>Pagamento Aprovado</h5>
+                    <p className="text-xs text-gray-500">{['Pago', 'Enviado'].includes(trackedOrder.status) ? 'Transação confirmada.' : 'A aguardar confirmação...'}</p>
+                  </div>
+                  <div className="relative pl-6">
+                    <div className={`absolute -left-[9px] top-1 w-4 h-4 rounded-full border-4 ${trackedOrder.status === 'Enviado' ? 'bg-blue-600 dark:bg-[#00ff66] border-blue-100 dark:border-[#00ff66]/30 animate-pulse' : 'bg-gray-300 dark:bg-gray-600 border-white dark:border-gray-900'}`}></div>
+                    <h5 className={`font-bold text-sm ${trackedOrder.status === 'Enviado' ? 'text-gray-900 dark:text-white' : 'text-gray-400'}`}>Em Trânsito</h5>
+                    <p className="text-xs text-gray-500">{trackedOrder.status === 'Enviado' ? `A caminho para: ${trackedOrder.address}` : 'Preparação e embalamento.'}</p>
+                  </div>
+                </div>
+
+                <button onClick={() => setTrackedOrder(null)} className="w-full mt-8 py-3 bg-gray-200 dark:bg-gray-800 hover:bg-gray-300 dark:hover:bg-gray-700 text-gray-900 dark:text-white font-bold rounded-xl transition-colors text-sm cursor-pointer">
+                  Consultar outra encomenda
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* DRAWER DE FAVORITOS */}
       {isFavoritesOpen && (
         <div className="fixed inset-0 z-50 flex justify-end">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity" onClick={() => setIsFavoritesOpen(false)}></div>
           <div className="relative w-full max-w-md bg-white dark:bg-gray-900 h-full shadow-2xl flex flex-col animate-fade-in-up">
             <div className="p-6 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">❤️ Meus Favoritos</h2>
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">❤️ Favoritos</h2>
               <button onClick={() => setIsFavoritesOpen(false)} className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 text-3xl">×</button>
             </div>
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
@@ -456,7 +594,7 @@ export default function Home() {
                     </div>
                     <div className="flex-1">
                       <h4 className="font-bold text-gray-900 dark:text-white text-sm truncate w-40" title={item.name}>{item.name}</h4>
-                      <p className="font-extrabold text-blue-600 dark:text-[#00ff66] text-sm mt-1">{item.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+                      <p className="font-extrabold text-blue-600 dark:text-[#00ff66] text-sm mt-1">{item.price.toLocaleString('pt-PT', { style: 'currency', currency: 'BRL' })}</p>
                       <Link href={`/produto/${item.id}`} onClick={() => setIsFavoritesOpen(false)} className="inline-block mt-2 text-xs font-bold text-white bg-gray-900 dark:bg-gray-700 hover:bg-blue-600 dark:hover:bg-[#00ff66] dark:hover:text-black px-3 py-1.5 rounded-lg transition-colors">
                         Ver Detalhes
                       </Link>
@@ -488,7 +626,7 @@ export default function Home() {
                   <div className="flex justify-between items-center mb-2">
                     <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
                       {missingForFreeShipping > 0 
-                        ? `Faltam ${missingForFreeShipping.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} para Portes Grátis!` 
+                        ? `Faltam ${missingForFreeShipping.toLocaleString('pt-PT', { style: 'currency', currency: 'BRL' })} para Portes Grátis!` 
                         : "🎉 Ganhou Portes Grátis!"}
                     </span>
                   </div>
@@ -504,7 +642,7 @@ export default function Home() {
                 <div className="h-full flex flex-col items-center justify-center text-center space-y-4">
                   <span className="text-6xl">🛍️</span>
                   <p className="text-gray-500 dark:text-gray-400 text-lg">O seu carrinho está vazio.</p>
-                  <button onClick={() => setIsCartOpen(false)} className="px-6 py-2 bg-blue-50 dark:bg-gray-800 text-blue-600 dark:text-white font-bold rounded-lg border border-transparent dark:border-gray-700">Continuar a comprar</button>
+                  <button onClick={() => setIsCartOpen(false)} className="px-6 py-2 bg-blue-50 dark:bg-gray-800 text-blue-600 dark:text-white font-bold rounded-lg border border-transparent dark:border-gray-700 cursor-pointer">Continuar a comprar</button>
                 </div>
               ) : (
                 cart.map((item) => (
@@ -515,7 +653,7 @@ export default function Home() {
                     <div className="flex-1">
                       <h4 className="font-bold text-gray-900 dark:text-white text-sm truncate w-40" title={item.name}>{item.name}</h4>
                       <p className="text-xs text-gray-500 dark:text-gray-400">Tam: {item.size}</p>
-                      <p className="font-extrabold text-blue-600 dark:text-[#00ff66] text-sm mt-1">{item.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+                      <p className="font-extrabold text-blue-600 dark:text-[#00ff66] text-sm mt-1">{item.price.toLocaleString('pt-PT', { style: 'currency', currency: 'BRL' })}</p>
                       
                       <div className="flex items-center gap-3 mt-2 bg-gray-50 dark:bg-gray-900 w-fit rounded-lg border border-gray-200 dark:border-gray-700">
                         <button onClick={() => updateCartQuantity(item.cartItemId, -1)} className="px-2 py-0.5 text-gray-500 hover:text-black dark:hover:text-white font-bold">-</button>
@@ -538,7 +676,7 @@ export default function Home() {
                     type="text" placeholder="Cupão (ex: PROMO10)" value={promoCode} onChange={(e) => setPromoCode(e.target.value)}
                     className="flex-1 px-3 py-2 border rounded-lg bg-gray-50 dark:bg-gray-800 text-sm dark:text-white border-gray-200 dark:border-gray-700 outline-none focus:border-blue-500 dark:focus:border-[#00ff66] uppercase placeholder:normal-case"
                   />
-                  <button onClick={handleApplyPromo} className="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 font-bold rounded-lg text-sm transition-colors text-gray-800 dark:text-white">
+                  <button onClick={handleApplyPromo} className="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 font-bold rounded-lg text-sm transition-colors text-gray-800 dark:text-white cursor-pointer">
                     Aplicar
                   </button>
                 </div>
@@ -547,95 +685,22 @@ export default function Home() {
                 <div className="space-y-2 mb-4">
                   <div className="flex justify-between items-center">
                     <span className="text-gray-500 dark:text-gray-400 font-semibold text-sm">Subtotal ({cartTotalItems} itens)</span>
-                    <span className="font-bold text-gray-900 dark:text-white text-sm">{cartSubtotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                    <span className="font-bold text-gray-900 dark:text-white text-sm">{cartSubtotal.toLocaleString('pt-PT', { style: 'currency', currency: 'BRL' })}</span>
                   </div>
                   {discount > 0 && (
                     <div className="flex justify-between items-center text-green-500 dark:text-[#00ff66] text-sm">
                       <span className="font-bold">Desconto ({discount * 100}%)</span>
-                      <span className="font-black">- {discountValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                      <span className="font-black">- {discountValue.toLocaleString('pt-PT', { style: 'currency', currency: 'BRL' })}</span>
                     </div>
                   )}
                   <div className="flex justify-between items-center pt-3 border-t border-gray-100 dark:border-gray-800 mt-2">
                     <span className="text-gray-900 dark:text-white font-black text-lg">Total Final</span>
-                    <span className="text-2xl font-black text-blue-600 dark:text-[#00ff66]">{cartTotalPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                    <span className="text-2xl font-black text-blue-600 dark:text-[#00ff66]">{cartTotalPrice.toLocaleString('pt-PT', { style: 'currency', currency: 'BRL' })}</span>
                   </div>
                 </div>
 
-                <button onClick={() => { setIsCartOpen(false); setIsCheckoutOpen(true); }} className="w-full py-4 bg-gray-900 dark:bg-white text-white dark:text-black font-black uppercase tracking-wider rounded-xl shadow-lg hover:bg-blue-600 dark:hover:bg-[#00ff66] transition-colors text-sm">
+                <button onClick={() => { setIsCartOpen(false); setIsCheckoutOpen(true); }} className="w-full py-4 bg-gray-900 dark:bg-white text-white dark:text-black font-black uppercase tracking-wider rounded-xl shadow-lg hover:bg-blue-600 dark:hover:bg-[#00ff66] transition-colors text-sm cursor-pointer">
                   Finalizar Compra
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* NOVO MODAL: RASTREIO DE ENCOMENDAS */}
-      {isTrackingOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => {setIsTrackingOpen(false); setTrackedOrder(null)}}></div>
-          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 w-full max-w-md rounded-3xl shadow-2xl p-6 md:p-8 text-left relative z-10 animate-fade-in-up">
-            <button onClick={() => {setIsTrackingOpen(false); setTrackedOrder(null)}} className="absolute top-4 right-4 text-gray-400 hover:text-gray-900 dark:hover:text-white text-2xl font-bold">×</button>
-            <h3 className="text-2xl font-black text-gray-900 dark:text-white mb-2">📍 Rastrear Encomenda</h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Consulte o estado atual da sua compra introduzindo os dados abaixo.</p>
-            
-            {!trackedOrder ? (
-              <form onSubmit={handleTrackOrder} className="space-y-4">
-                <div>
-                  <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Número da Encomenda (ID)</label>
-                  <input required type="text" value={trackingForm.id} onChange={(e) => setTrackingForm({...trackingForm, id: e.target.value})} className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-800 rounded-xl text-gray-900 dark:text-white outline-none focus:border-blue-500 dark:focus:border-[#00ff66] text-sm mt-1" placeholder="Ex: 4829" />
-                </div>
-                <div>
-                  <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">E-mail de Registo</label>
-                  <input required type="email" value={trackingForm.email} onChange={(e) => setTrackingForm({...trackingForm, email: e.target.value})} className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-800 rounded-xl text-gray-900 dark:text-white outline-none focus:border-blue-500 dark:focus:border-[#00ff66] text-sm mt-1" placeholder="o.seu@email.com" />
-                </div>
-                
-                {trackingError && <p className="text-red-500 text-xs font-semibold">⚠️ {trackingError}</p>}
-
-                <button type="submit" className="w-full py-3.5 bg-blue-600 dark:bg-[#00ff66] text-white dark:text-black font-black uppercase tracking-wider rounded-xl hover:bg-blue-700 dark:hover:bg-[#00cc52] transition-colors text-sm mt-2">
-                  Procurar
-                </button>
-              </form>
-            ) : (
-              <div className="animate-fade-in-up">
-                <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4 border border-gray-200 dark:border-gray-700 mb-6">
-                  <p className="text-xs text-gray-500 dark:text-gray-400 uppercase font-bold">Encomenda #{trackedOrder.id}</p>
-                  <h4 className="text-lg font-black text-gray-900 dark:text-white">{trackedOrder.customerName}</h4>
-                  <p className="text-sm text-gray-600 dark:text-gray-300 mt-2 line-clamp-2">{trackedOrder.itemsSummary}</p>
-                </div>
-
-                {/* TIMELINE VISUAL DE ESTADO */}
-                <div className="relative border-l-2 border-gray-200 dark:border-gray-700 ml-3 space-y-8 py-2">
-                  
-                  {/* Passo 1: Recebido / Pendente */}
-                  <div className="relative pl-6">
-                    <div className={`absolute -left-[9px] top-1 w-4 h-4 rounded-full border-4 ${trackedOrder.status ? 'bg-blue-600 dark:bg-[#00ff66] border-blue-100 dark:border-[#00ff66]/30' : 'bg-gray-300 dark:bg-gray-600 border-white dark:border-gray-900'}`}></div>
-                    <h5 className={`font-bold text-sm ${trackedOrder.status ? 'text-gray-900 dark:text-white' : 'text-gray-400'}`}>Encomenda Recebida</h5>
-                    <p className="text-xs text-gray-500">{trackedOrder.date}</p>
-                  </div>
-
-                  {/* Passo 2: Pago */}
-                  <div className="relative pl-6">
-                    <div className={`absolute -left-[9px] top-1 w-4 h-4 rounded-full border-4 ${['Pago', 'Enviado'].includes(trackedOrder.status) ? 'bg-blue-600 dark:bg-[#00ff66] border-blue-100 dark:border-[#00ff66]/30' : 'bg-gray-300 dark:bg-gray-600 border-white dark:border-gray-900'}`}></div>
-                    <h5 className={`font-bold text-sm ${['Pago', 'Enviado'].includes(trackedOrder.status) ? 'text-gray-900 dark:text-white' : 'text-gray-400'}`}>Pagamento Aprovado</h5>
-                    <p className="text-xs text-gray-500">
-                      {['Pago', 'Enviado'].includes(trackedOrder.status) ? 'Transação via PIX confirmada.' : 'A aguardar confirmação...'}
-                    </p>
-                  </div>
-
-                  {/* Passo 3: Enviado */}
-                  <div className="relative pl-6">
-                    <div className={`absolute -left-[9px] top-1 w-4 h-4 rounded-full border-4 ${trackedOrder.status === 'Enviado' ? 'bg-blue-600 dark:bg-[#00ff66] border-blue-100 dark:border-[#00ff66]/30 animate-pulse' : 'bg-gray-300 dark:bg-gray-600 border-white dark:border-gray-900'}`}></div>
-                    <h5 className={`font-bold text-sm ${trackedOrder.status === 'Enviado' ? 'text-gray-900 dark:text-white' : 'text-gray-400'}`}>Em Trânsito</h5>
-                    <p className="text-xs text-gray-500">
-                      {trackedOrder.status === 'Enviado' ? `A caminho para: ${trackedOrder.address}` : 'Preparação e embalamento.'}
-                    </p>
-                  </div>
-
-                </div>
-
-                <button onClick={() => setTrackedOrder(null)} className="w-full mt-8 py-3 bg-gray-200 dark:bg-gray-800 hover:bg-gray-300 dark:hover:bg-gray-700 text-gray-900 dark:text-white font-bold rounded-xl transition-colors text-sm">
-                  Consultar outra encomenda
                 </button>
               </div>
             )}
@@ -652,8 +717,8 @@ export default function Home() {
             <h2 className="text-2xl font-extrabold text-gray-900 dark:text-white mb-6">📝 Os Seus Dados</h2>
             
             <div className="flex bg-gray-100 dark:bg-gray-900 rounded-xl p-1 mb-6 border border-gray-200 dark:border-gray-700/50">
-              <button type="button" onClick={() => setDeliveryMethod('delivery')} className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all ${deliveryMethod === 'delivery' ? 'bg-white dark:bg-gray-800 shadow-sm text-blue-600 dark:text-[#00ff66]' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}>🚚 Entrega</button>
-              <button type="button" onClick={() => setDeliveryMethod('pickup')} className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all ${deliveryMethod === 'pickup' ? 'bg-white dark:bg-gray-800 shadow-sm text-blue-600 dark:text-[#00ff66]' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}>🏪 Levantar na Loja</button>
+              <button type="button" onClick={() => setDeliveryMethod('delivery')} className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all ${deliveryMethod === 'delivery' ? 'bg-white dark:bg-gray-800 shadow-sm text-blue-600 dark:text-[#00ff66]' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'} cursor-pointer`}>🚚 Entrega</button>
+              <button type="button" onClick={() => setDeliveryMethod('pickup')} className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all ${deliveryMethod === 'pickup' ? 'bg-white dark:bg-gray-800 shadow-sm text-blue-600 dark:text-[#00ff66]' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'} cursor-pointer`}>🏪 Levantamento</button>
             </div>
 
             <form onSubmit={handleCheckoutSubmit} className="space-y-4">
@@ -677,7 +742,7 @@ export default function Home() {
                 </div>
               )}
 
-              <button type="submit" className="w-full mt-6 py-3.5 bg-gray-900 hover:bg-blue-600 dark:bg-[#00ff66] dark:text-black dark:hover:bg-[#00cc52] text-white font-black uppercase tracking-wider rounded-xl shadow-lg transition-colors flex items-center justify-center gap-2 text-sm">
+              <button type="submit" className="w-full mt-6 py-3.5 bg-gray-900 hover:bg-blue-600 dark:bg-[#00ff66] dark:text-black dark:hover:bg-[#00cc52] text-white font-black uppercase tracking-wider rounded-xl shadow-lg transition-colors flex items-center justify-center gap-2 text-sm cursor-pointer">
                 Avançar para Pagamento
               </button>
             </form>
@@ -715,14 +780,14 @@ export default function Home() {
               <span className="text-xs text-gray-500 dark:text-gray-400 font-mono truncate w-4/5">
                 00020126580014br.gov.bcb.pix0136fake-pix-key-9999-1234
               </span>
-              <button className="text-blue-600 dark:text-[#00ff66] font-bold text-xs">Copiar</button>
+              <button onClick={() => showToast('Chave copiada!', 'info')} className="text-blue-600 dark:text-[#00ff66] font-bold text-xs cursor-pointer">Copiar</button>
             </div>
 
             <div className="text-xl font-black text-gray-900 dark:text-white mb-6">
-              {cartTotalPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+              {cartTotalPrice.toLocaleString('pt-PT', { style: 'currency', currency: 'BRL' })}
             </div>
 
-            <button onClick={handleConfirmOrder} className="w-full py-3 bg-green-500 hover:bg-green-600 dark:bg-[#00ff66] dark:hover:bg-[#00cc52] dark:text-black text-white font-black uppercase tracking-wider rounded-xl shadow-lg transition-colors flex justify-center items-center gap-2 text-sm">
+            <button onClick={handleConfirmOrder} className="w-full py-3 bg-green-500 hover:bg-green-600 dark:bg-[#00ff66] dark:hover:bg-[#00cc52] dark:text-black text-white font-black uppercase tracking-wider rounded-xl shadow-lg transition-colors flex justify-center items-center gap-2 text-sm cursor-pointer">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
               Simular Pagamento
             </button>
@@ -730,7 +795,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* MODAL SUCESSO - COM O ID PARA RASTREIO */}
+      {/* MODAL SUCESSO */}
       {isSuccessOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setIsSuccessOpen(false)}></div>
@@ -744,7 +809,7 @@ export default function Home() {
               <span className="text-xl font-black text-gray-900 dark:text-[#00ff66]">#{lastOrderId}</span>
             </div>
 
-            <button onClick={() => setIsSuccessOpen(false)} className="w-full py-3 bg-gray-900 dark:bg-[#00ff66] text-white dark:text-black font-black uppercase text-sm rounded-xl">Excelente, obrigado!</button>
+            <button onClick={() => setIsSuccessOpen(false)} className="w-full py-3 bg-gray-900 dark:bg-[#00ff66] text-white dark:text-black font-black uppercase text-sm rounded-xl cursor-pointer">Excelente, obrigado!</button>
           </div>
         </div>
       )}
